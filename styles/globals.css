@@ -287,6 +287,144 @@ a {
   max-width: 600px;
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+.letters-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.milouy-applications-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.milouy-applications-control label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.milouy-applications-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.milouy-applications-input-wrapper:focus-within {
+  border-color: #333;
+}
+
+.milouy-applications-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.milouy-applications-arrow:hover:not(:disabled) {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.milouy-applications-arrow:active:not(:disabled) {
+  background: #eee;
+}
+
+.milouy-applications-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.milouy-applications-input {
+  width: 50px;
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  text-align: center;
+  border: none;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  font-family: inherit;
+  -moz-appearance: textfield;
+  background: transparent;
+}
+
+.milouy-applications-input::-webkit-outer-spin-button,
+.milouy-applications-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.milouy-applications-input:focus {
+  outline: none;
+}
+
+.hide-milouyim-control {
+  display: flex;
+  justify-content: center;
+}
+
+.hide-milouyim-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hide-milouyim-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #9b59b6;
+}
+
+.milouy-of-milouy-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  background: #fff;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.milouy-of-milouy-button:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.milouy-of-milouy-button.active {
+  background: #9b59b6;
+  color: #fff;
+  border-color: #9b59b6;
+}
+
+.milouy-of-milouy-button.active:hover {
+  background: #8e44ad;
+  border-color: #8e44ad;
 }
 
 .letters-list {
@@ -301,6 +439,7 @@ a {
   background: #f9f9f9;
   border-radius: 8px;
   border: 1px solid #eee;
+  transition: all 0.2s;
 }
 
 .letter-row {
@@ -327,6 +466,98 @@ a {
   font-size: 1rem;
   font-weight: 600;
   color: #666;
+}
+
+.milouy-of-milouy-steps {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.milouy-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.milouy-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: #9b59b6;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.milouy-step-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.milouy-of-milouy-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.milouy-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.milouy-of-milouy-gematria {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9b59b6;
+}
+
+.milouy-letter-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #888;
+}
+
+.milouy-letters-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.milouy-letter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  background: #e8e8e8;
+  border-radius: 4px;
+  border: 1px solid #d0d0d0;
 }
 
 @media (max-width: 768px) {
@@ -379,6 +610,29 @@ a {
 
   .letter-gematria {
     font-size: 0.9rem;
+  }
+
+  .letters-controls {
+    gap: 0.75rem;
+  }
+
+  .milouy-applications-control {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .milouy-applications-input-wrapper {
+    width: auto;
+  }
+
+  .milouy-applications-input {
+    width: 45px;
+    font-size: 0.9rem;
+  }
+
+  .milouy-applications-arrow {
+    width: 24px;
+    height: 28px;
   }
 }
 

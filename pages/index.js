@@ -32,6 +32,12 @@ const hebrewLetters = [
   gematria: calculateGematria(item.milouy)
 }))
 
+// Create a map of letters to their milouyim for easy lookup
+const letterToMilouy = {}
+hebrewLetters.forEach(item => {
+  letterToMilouy[item.letter] = item.milouy
+})
+
 export default function Home() {
   const [input, setInput] = useState('')
   const [activeTab, setActiveTab] = useState('calculator')
@@ -40,7 +46,75 @@ export default function Home() {
   const [calculatedMin, setCalculatedMin] = useState(1)
   const [calculatedMax, setCalculatedMax] = useState(10)
   const [showFixedPoints, setShowFixedPoints] = useState(false)
+  const [showMilouyOfMilouy, setShowMilouyOfMilouy] = useState(false)
+  const [milouyApplications, setMilouyApplications] = useState(1)
+  const [hideMilouyim, setHideMilouyim] = useState(false)
   const gematria = calculateGematria(input)
+
+  // Map final letters to their non-final counterparts
+  const finalToNonFinal = {
+    'ך': 'כ',
+    'ם': 'מ',
+    'ן': 'נ',
+    'ף': 'פ',
+    'ץ': 'צ'
+  }
+
+  // Extract unique letters from a milouy string
+  const getLettersFromMilouy = (milouy) => {
+    const cleanMilouy = milouy.replace(/\s/g, '')
+    const letterSet = new Set()
+    
+    cleanMilouy.split('').forEach(char => {
+      // Convert final letter to non-final for display
+      const displayChar = finalToNonFinal[char] || char
+      // Only include if it's a Hebrew letter
+      if (letterToMilouy[displayChar] || letterToMilouy[char]) {
+        letterSet.add(displayChar)
+      }
+    })
+    
+    const letters = Array.from(letterSet)
+    return letters.sort((a, b) => {
+      // Sort by the original letter order in hebrewLetters
+      const indexA = hebrewLetters.findIndex(item => item.letter === a)
+      const indexB = hebrewLetters.findIndex(item => item.letter === b)
+      return indexA - indexB
+    })
+  }
+
+  // Replace final letters with non-final ones in text (preserves spaces)
+  const replaceFinalLetters = (text) => {
+    return text.split('').map(char => {
+      // Keep spaces as-is, replace final letters
+      if (char === ' ') return char
+      return finalToNonFinal[char] || char
+    }).join('')
+  }
+
+  // Calculate milouy of milouy recursively, returning all steps
+  const getMilouyOfMilouySteps = (milouy, depth = 1) => {
+    const steps = []
+    let current = milouy
+    
+    for (let i = 0; i < depth; i++) {
+      // Remove spaces for processing
+      const cleanMilouy = current.replace(/\s/g, '')
+      
+      const result = cleanMilouy.split('').map(char => {
+        // Convert final letter to non-final if needed
+        const nonFinalChar = finalToNonFinal[char] || char
+        return letterToMilouy[nonFinalChar] || char
+      }).join(' ')
+      
+      // Replace final letters in the displayed result
+      const displayResult = replaceFinalLetters(result)
+      steps.push(displayResult)
+      current = result.replace(/\s/g, '')
+    }
+    
+    return steps
+  }
 
   const hebrewNumbers = useMemo(() => {
     const allNumbers = generateHebrewNumbers(calculatedMin, calculatedMax)
@@ -207,16 +281,121 @@ export default function Home() {
 
         {activeTab === 'letters' && (
           <div className="letters-section">
-            <div className="letters-list">
-              {hebrewLetters.map((item) => (
-                <div key={item.letter} className="letter-item">
-                  <div className="letter-row">
-                    <div className="letter-char">{item.letter}</div>
-                    <div className="letter-milouy">{item.milouy}</div>
-                    <div className="letter-gematria">{item.gematria}</div>
+            <div className="letters-controls">
+              <button 
+                onClick={() => setShowMilouyOfMilouy(!showMilouyOfMilouy)} 
+                className={`milouy-of-milouy-button ${showMilouyOfMilouy ? 'active' : ''}`}
+              >
+                מילויים של מילויים
+              </button>
+              {showMilouyOfMilouy && (
+                <>
+                  <div className="milouy-applications-control">
+                    <label htmlFor="milouy-applications">מספר יישומים:</label>
+                    <div className="milouy-applications-input-wrapper">
+                      <button
+                        type="button"
+                        className="milouy-applications-arrow milouy-applications-decrement"
+                        onClick={() => setMilouyApplications(Math.max(1, milouyApplications - 1))}
+                        disabled={milouyApplications <= 1}
+                        aria-label="Decrease"
+                      >
+                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 5L5 1L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      <input
+                        id="milouy-applications"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={milouyApplications}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value)
+                          if (!isNaN(val) && val >= 1) {
+                            setMilouyApplications(Math.min(val, 10))
+                          }
+                        }}
+                        className="milouy-applications-input"
+                        dir="ltr"
+                      />
+                      <button
+                        type="button"
+                        className="milouy-applications-arrow milouy-applications-increment"
+                        onClick={() => setMilouyApplications(Math.min(10, milouyApplications + 1))}
+                        disabled={milouyApplications >= 10}
+                        aria-label="Increase"
+                      >
+                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                  <div className="hide-milouyim-control">
+                    <label htmlFor="hide-milouyim" className="hide-milouyim-label">
+                      <input
+                        id="hide-milouyim"
+                        type="checkbox"
+                        checked={hideMilouyim}
+                        onChange={(e) => setHideMilouyim(e.target.checked)}
+                        className="hide-milouyim-checkbox"
+                      />
+                      הסתר מילויים
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="letters-list">
+              {hebrewLetters.map((item) => {
+                const milouySteps = showMilouyOfMilouy ? getMilouyOfMilouySteps(item.milouy, milouyApplications) : []
+                
+                return (
+                  <div 
+                    key={item.letter} 
+                    className="letter-item"
+                  >
+                    <div className="letter-row">
+                      <div className="letter-char">{item.letter}</div>
+                      <div className="letter-milouy">{item.milouy}</div>
+                      <div className="letter-gematria">{item.gematria}</div>
+                    </div>
+                    {showMilouyOfMilouy && milouySteps.length > 0 && (
+                      <div className="milouy-of-milouy-steps">
+                        {milouySteps.map((step, index) => {
+                          const stepGematria = calculateGematria(step.replace(/\s/g, ''))
+                          const stepLetters = getLettersFromMilouy(step)
+                          const distinctLetterCount = stepLetters.length
+                          return (
+                            <div key={index} className="milouy-step">
+                              <div className="milouy-step-number">{index + 1}</div>
+                              <div className="milouy-step-content">
+                                {!hideMilouyim && (
+                                  <div className="milouy-of-milouy-text">{step}</div>
+                                )}
+                                <div className="milouy-stats">
+                                  <div className="milouy-of-milouy-gematria">{stepGematria}</div>
+                                  <div className="milouy-letter-count">{distinctLetterCount} אותיות שונות</div>
+                                </div>
+                                {stepLetters.length > 0 && (
+                                  <div className="milouy-letters-list">
+                                    {stepLetters.map((letter, letterIndex) => (
+                                      <span key={letterIndex} className="milouy-letter-badge">
+                                        {letter}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
