@@ -282,6 +282,53 @@ a {
   color: #666;
 }
 
+.letters-section {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.letters-list {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.letter-item {
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.letter-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.letter-char {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #000;
+}
+
+.letter-milouy {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+}
+
+.letter-gematria {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+}
+
 @media (max-width: 768px) {
   .title {
     font-size: 2.5rem;
@@ -311,6 +358,27 @@ a {
 
   .number-gematria {
     font-size: 1.1rem;
+  }
+
+  .letters-list {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .letter-item {
+    padding: 0.75rem;
+  }
+
+  .letter-char {
+    font-size: 2rem;
+  }
+
+  .letter-milouy {
+    font-size: 1rem;
+  }
+
+  .letter-gematria {
+    font-size: 0.9rem;
   }
 }
 

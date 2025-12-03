@@ -3,6 +3,35 @@ import { useState, useMemo } from 'react'
 import { calculateGematria } from '../utils/gematria'
 import { generateHebrewNumbers } from '../utils/hebrewNumbers'
 
+// Hebrew letters with their milouyim (full spellings)
+const hebrewLetters = [
+  { letter: 'א', milouy: 'אלף' },
+  { letter: 'ב', milouy: 'בית' },
+  { letter: 'ג', milouy: 'גימל' },
+  { letter: 'ד', milouy: 'דלת' },
+  { letter: 'ה', milouy: 'הא' },
+  { letter: 'ו', milouy: 'ויו' },
+  { letter: 'ז', milouy: 'זיין' },
+  { letter: 'ח', milouy: 'חית' },
+  { letter: 'ט', milouy: 'טית' },
+  { letter: 'י', milouy: 'יוד' },
+  { letter: 'כ', milouy: 'כף' },
+  { letter: 'ל', milouy: 'למד' },
+  { letter: 'מ', milouy: 'מים' },
+  { letter: 'נ', milouy: 'נון' },
+  { letter: 'ס', milouy: 'סמך' },
+  { letter: 'ע', milouy: 'עין' },
+  { letter: 'פ', milouy: 'פא' },
+  { letter: 'צ', milouy: 'צדי' },
+  { letter: 'ק', milouy: 'קוף' },
+  { letter: 'ר', milouy: 'ריש' },
+  { letter: 'ש', milouy: 'שין' },
+  { letter: 'ת', milouy: 'תיו' }
+].map(item => ({
+  ...item,
+  gematria: calculateGematria(item.milouy)
+}))
+
 export default function Home() {
   const [input, setInput] = useState('')
   const [activeTab, setActiveTab] = useState('calculator')
@@ -57,6 +86,12 @@ export default function Home() {
             onClick={() => setActiveTab('numbers')}
           >
             מספרים
+          </button>
+          <button
+            className={`tab ${activeTab === 'letters' ? 'active' : ''}`}
+            onClick={() => setActiveTab('letters')}
+          >
+            אותיות
           </button>
         </div>
 
@@ -166,6 +201,22 @@ export default function Home() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'letters' && (
+          <div className="letters-section">
+            <div className="letters-list">
+              {hebrewLetters.map((item) => (
+                <div key={item.letter} className="letter-item">
+                  <div className="letter-row">
+                    <div className="letter-char">{item.letter}</div>
+                    <div className="letter-milouy">{item.milouy}</div>
+                    <div className="letter-gematria">{item.gematria}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
