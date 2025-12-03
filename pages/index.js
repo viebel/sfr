@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { useState, useMemo } from 'react'
 import { calculateGematria } from '../utils/gematria'
-import { generateHebrewNumbers } from '../utils/hebrewNumbers'
+import { generateHebrewNumbers, getHebrewNumberName } from '../utils/hebrewNumbers'
 
 // Hebrew letters with their milouyim (full spellings)
 const hebrewLetters = [
@@ -49,7 +49,69 @@ export default function Home() {
   const [showMilouyOfMilouy, setShowMilouyOfMilouy] = useState(false)
   const [milouyApplications, setMilouyApplications] = useState(1)
   const [hideMilouyim, setHideMilouyim] = useState(false)
+  const [numberInput, setNumberInput] = useState('')
+  const [maxSteps, setMaxSteps] = useState(20)
   const gematria = calculateGematria(input)
+
+  // Generate recursive number name chain for a specific gender
+  const getNumberNameChain = (num, gender = 'masculine', maxSteps = 20) => {
+    const chain = []
+    let current = parseInt(num)
+    const seen = new Set()
+    
+    if (isNaN(current) || current < 1) {
+      return chain
+    }
+    
+    for (let i = 0; i < maxSteps; i++) {
+      if (seen.has(current)) {
+        // Detected a cycle - only break if we've already added enough steps
+        if (chain.length >= maxSteps) {
+          break
+        }
+        // Otherwise continue to show the cycle
+      }
+      seen.add(current)
+      
+      const name = getHebrewNumberName(current, gender)
+      const nameGematria = calculateGematria(name)
+      
+      chain.push({
+        number: current,
+        name: name,
+        gematria: nameGematria
+      })
+      
+      // Continue to next step even if it's a fixed point, unless we've reached maxSteps
+      if (i >= maxSteps - 1) {
+        break
+      }
+      
+      current = nameGematria
+    }
+    
+    return chain
+  }
+
+  const masculineChain = useMemo(() => {
+    if (!numberInput) return []
+    return getNumberNameChain(numberInput, 'masculine', maxSteps)
+  }, [numberInput, maxSteps])
+
+  const feminineChain = useMemo(() => {
+    if (!numberInput) return []
+    return getNumberNameChain(numberInput, 'feminine', maxSteps)
+  }, [numberInput, maxSteps])
+
+  // Helper function to find the index where a number first appeared in the chain
+  const findFirstOccurrence = (chain, currentIndex, number) => {
+    for (let i = 0; i < currentIndex; i++) {
+      if (chain[i].number === number) {
+        return i + 1 // Return 1-based index (step number)
+      }
+    }
+    return null
+  }
 
   // Map final letters to their non-final counterparts
   const finalToNonFinal = {
@@ -166,6 +228,12 @@ export default function Home() {
             onClick={() => setActiveTab('letters')}
           >
             אותיות
+          </button>
+          <button
+            className={`tab ${activeTab === 'number' ? 'active' : ''}`}
+            onClick={() => setActiveTab('number')}
+          >
+            מספר
           </button>
         </div>
 
@@ -397,6 +465,122 @@ export default function Home() {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'number' && (
+          <div className="number-section">
+            <div className="number-input-control">
+              <label htmlFor="number-input">הכנס מספר:</label>
+              <input
+                id="number-input"
+                type="number"
+                value={numberInput}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setNumberInput(val)
+                }}
+                className="number-input"
+                dir="ltr"
+                placeholder="מספר..."
+              />
+            </div>
+            <div className="number-steps-control">
+              <label htmlFor="max-steps">מספר שלבים מקסימלי:</label>
+              <div className="number-steps-input-wrapper">
+                <button
+                  type="button"
+                  className="number-steps-arrow number-steps-decrement"
+                  onClick={() => setMaxSteps(Math.max(1, maxSteps - 1))}
+                  disabled={maxSteps <= 1}
+                  aria-label="Decrease"
+                >
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 5L5 1L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <input
+                  id="max-steps"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={maxSteps}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val >= 1) {
+                      setMaxSteps(Math.min(val, 100))
+                    }
+                  }}
+                  className="number-steps-input"
+                  dir="ltr"
+                />
+                <button
+                  type="button"
+                  className="number-steps-arrow number-steps-increment"
+                  onClick={() => setMaxSteps(Math.min(100, maxSteps + 1))}
+                  disabled={maxSteps >= 100}
+                  aria-label="Increase"
+                >
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {(masculineChain.length > 0 || feminineChain.length > 0) && (
+              <div className="number-chain-columns">
+                <div className="number-chain-column">
+                  <div className="number-chain-column-header">זכר</div>
+                  <div className="number-chain">
+                    {masculineChain.map((step, index) => {
+                      const firstOccurrenceIndex = findFirstOccurrence(masculineChain, index, step.number)
+                      const isRepeated = firstOccurrenceIndex !== null
+                      return (
+                        <div 
+                          key={index} 
+                          className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
+                        >
+                          <div className="number-chain-step-number">
+                            {index + 1}
+                            {isRepeated && (
+                              <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
+                            )}
+                          </div>
+                          <div className="number-chain-number">{step.number}</div>
+                          <div className="number-chain-name">{step.name}</div>
+                          <div className="number-chain-gematria">{step.gematria}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="number-chain-column">
+                  <div className="number-chain-column-header">נקבה</div>
+                  <div className="number-chain">
+                    {feminineChain.map((step, index) => {
+                      const firstOccurrenceIndex = findFirstOccurrence(feminineChain, index, step.number)
+                      const isRepeated = firstOccurrenceIndex !== null
+                      return (
+                        <div 
+                          key={index} 
+                          className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
+                        >
+                          <div className="number-chain-step-number">
+                            {index + 1}
+                            {isRepeated && (
+                              <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
+                            )}
+                          </div>
+                          <div className="number-chain-number">{step.number}</div>
+                          <div className="number-chain-name">{step.name}</div>
+                          <div className="number-chain-gematria">{step.gematria}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

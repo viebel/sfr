@@ -32,7 +32,7 @@ const baseNumbers = {
   100: { masculine: 'מאה', feminine: 'מאה' }
 }
 
-function getHebrewNumberName(num, gender = 'masculine') {
+export function getHebrewNumberName(num, gender = 'masculine') {
   if (baseNumbers[num]) {
     return baseNumbers[num][gender]
   }
