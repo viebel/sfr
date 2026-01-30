@@ -52,10 +52,12 @@ export default function Home() {
   const [numberInput, setNumberInput] = useState('')
   const [maxSteps, setMaxSteps] = useState(20)
   const [atbashInput, setAtbashInput] = useState('')
+  const [kuzooInput, setKuzooInput] = useState('')
   const gematria = calculateGematria(input)
   const calculatorInputRef = useRef(null)
   const numberInputRef = useRef(null)
   const atbashInputRef = useRef(null)
+  const kuzooInputRef = useRef(null)
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -72,6 +74,8 @@ export default function Home() {
           numberInputRef.current.focus({ preventScroll: true })
         } else if (activeTab === 'atbash' && atbashInputRef.current) {
           atbashInputRef.current.focus({ preventScroll: true })
+        } else if (activeTab === 'kuzoo' && kuzooInputRef.current) {
+          kuzooInputRef.current.focus({ preventScroll: true })
         }
       })
     }, 0)
@@ -109,6 +113,34 @@ export default function Home() {
     return convertAtbash(atbashInput)
   }, [atbashInput])
 
+  // Kuzu (shift-by-one) conversion function
+  const convertKuzoo = (text) => {
+    const hebrewAlphabet = [
+      'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט',
+      'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ',
+      'ק', 'ר', 'ש', 'ת'
+    ]
+    const finalToRegular = {
+      'ך': 'כ',
+      'ם': 'מ',
+      'ן': 'נ',
+      'ף': 'פ',
+      'ץ': 'צ'
+    }
+
+    return text.split('').map(char => {
+      const regularChar = finalToRegular[char] || char
+      const index = hebrewAlphabet.indexOf(regularChar)
+      if (index === -1) return char
+      const nextIndex = (index + 1) % hebrewAlphabet.length
+      return hebrewAlphabet[nextIndex]
+    }).join('')
+  }
+
+  const kuzooOutput = useMemo(() => {
+    return convertKuzoo(kuzooInput)
+  }, [kuzooInput])
+
   // Atbash correspondence table data
   const atbashTable = [
     { letter: 'א', atbash: 'ת' },
@@ -133,6 +165,32 @@ export default function Home() {
     { letter: 'ר', atbash: 'ג' },
     { letter: 'ש', atbash: 'ב' },
     { letter: 'ת', atbash: 'א' }
+  ]
+
+  // Kuzu (shift-by-one) correspondence table data
+  const kuzooTable = [
+    { letter: 'א', kuzu: 'ב' },
+    { letter: 'ב', kuzu: 'ג' },
+    { letter: 'ג', kuzu: 'ד' },
+    { letter: 'ד', kuzu: 'ה' },
+    { letter: 'ה', kuzu: 'ו' },
+    { letter: 'ו', kuzu: 'ז' },
+    { letter: 'ז', kuzu: 'ח' },
+    { letter: 'ח', kuzu: 'ט' },
+    { letter: 'ט', kuzu: 'י' },
+    { letter: 'י', kuzu: 'כ' },
+    { letter: 'כ', kuzu: 'ל' },
+    { letter: 'ל', kuzu: 'מ' },
+    { letter: 'מ', kuzu: 'נ' },
+    { letter: 'נ', kuzu: 'ס' },
+    { letter: 'ס', kuzu: 'ע' },
+    { letter: 'ע', kuzu: 'פ' },
+    { letter: 'פ', kuzu: 'צ' },
+    { letter: 'צ', kuzu: 'ק' },
+    { letter: 'ק', kuzu: 'ר' },
+    { letter: 'ר', kuzu: 'ש' },
+    { letter: 'ש', kuzu: 'ת' },
+    { letter: 'ת', kuzu: 'א' }
   ]
 
   // Gematria correspondence table data
@@ -336,6 +394,18 @@ export default function Home() {
             גימטריא
           </button>
           <button
+            className={`tab ${activeTab === 'atbash' ? 'active' : ''}`}
+            onClick={() => setActiveTab('atbash')}
+          >
+            <span className="tab-label-nowrap">א״ת ב״ש</span>
+          </button>
+          <button
+            className={`tab ${activeTab === 'kuzoo' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kuzoo')}
+          >
+            כוז״ו
+          </button>
+          <button
             className={`tab ${activeTab === 'numbers' ? 'active' : ''}`}
             onClick={() => setActiveTab('numbers')}
           >
@@ -352,12 +422,6 @@ export default function Home() {
             onClick={() => setActiveTab('number')}
           >
             מספר
-          </button>
-          <button
-            className={`tab ${activeTab === 'atbash' ? 'active' : ''}`}
-            onClick={() => setActiveTab('atbash')}
-          >
-            א״ת ב״ש
           </button>
         </div>
 
@@ -745,6 +809,38 @@ export default function Home() {
             {atbashOutput && (
               <div className="atbash-result">
                 <div className="atbash-result-value">{atbashOutput}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'kuzoo' && (
+          <div className="atbash-section">
+            <div className="atbash-correspondence-table">
+              <div className="atbash-table">
+                {kuzooTable.map((item, index) => (
+                  <div key={index} className="atbash-table-row">
+                    <div className="atbash-table-letter">{item.letter}</div>
+                    <div className="atbash-table-arrow">←</div>
+                    <div className="atbash-table-letter">{item.kuzu}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="atbash-input-control">
+              <input
+                ref={kuzooInputRef}
+                id="kuzoo-input"
+                type="text"
+                value={kuzooInput}
+                onChange={(e) => setKuzooInput(e.target.value)}
+                className="atbash-input"
+                dir="rtl"
+              />
+            </div>
+            {kuzooOutput && (
+              <div className="atbash-result">
+                <div className="atbash-result-value">{kuzooOutput}</div>
               </div>
             )}
           </div>

@@ -76,6 +76,10 @@ a {
   font-family: inherit;
 }
 
+.tab-label-nowrap {
+  white-space: nowrap;
+}
+
 .tab:hover {
   color: #333;
   background: #f9f9f9;
