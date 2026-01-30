@@ -135,6 +135,32 @@ export default function Home() {
     { letter: 'ת', atbash: 'א' }
   ]
 
+  // Gematria correspondence table data
+  const gematriaTable = [
+    { letter: 'א', value: 1 },
+    { letter: 'ב', value: 2 },
+    { letter: 'ג', value: 3 },
+    { letter: 'ד', value: 4 },
+    { letter: 'ה', value: 5 },
+    { letter: 'ו', value: 6 },
+    { letter: 'ז', value: 7 },
+    { letter: 'ח', value: 8 },
+    { letter: 'ט', value: 9 },
+    { letter: 'י', value: 10 },
+    { letter: 'כ', value: 20 },
+    { letter: 'ל', value: 30 },
+    { letter: 'מ', value: 40 },
+    { letter: 'נ', value: 50 },
+    { letter: 'ס', value: 60 },
+    { letter: 'ע', value: 70 },
+    { letter: 'פ', value: 80 },
+    { letter: 'צ', value: 90 },
+    { letter: 'ק', value: 100 },
+    { letter: 'ר', value: 200 },
+    { letter: 'ש', value: 300 },
+    { letter: 'ת', value: 400 }
+  ]
+
   // Generate recursive number name chain for a specific gender
   const getNumberNameChain = (num, gender = 'masculine', maxSteps = 20) => {
     const chain = []
@@ -337,6 +363,16 @@ export default function Home() {
 
         {activeTab === 'calculator' && (
           <div className="calculator">
+            <div className="gematria-correspondence-table">
+              <div className="gematria-table">
+                {gematriaTable.map((item, index) => (
+                  <div key={index} className="gematria-table-row">
+                    <div className="gematria-table-letter">{item.letter}</div>
+                    <div className="gematria-table-value">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <input
               ref={calculatorInputRef}
               type="text"
@@ -708,7 +744,6 @@ export default function Home() {
             </div>
             {atbashOutput && (
               <div className="atbash-result">
-                <div className="atbash-result-label">תוצאה:</div>
                 <div className="atbash-result-value">{atbashOutput}</div>
               </div>
             )}
