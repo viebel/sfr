@@ -51,7 +51,64 @@ export default function Home() {
   const [hideMilouyim, setHideMilouyim] = useState(false)
   const [numberInput, setNumberInput] = useState('')
   const [maxSteps, setMaxSteps] = useState(20)
+  const [atbashInput, setAtbashInput] = useState('')
   const gematria = calculateGematria(input)
+
+  // Atbash conversion function
+  const convertAtbash = (text) => {
+    // Map final letters to regular letters first
+    const finalToRegular = {
+      'ך': 'כ',
+      'ם': 'מ',
+      'ן': 'נ',
+      'ף': 'פ',
+      'ץ': 'צ'
+    }
+    
+    // Atbash mapping: א↔ת, ב↔ש, ג↔ר, ד↔ק, ה↔צ, ו↔פ, ז↔ע, ח↔ס, ט↔נ, י↔מ, כ↔ל
+    const atbashMap = {
+      'א': 'ת', 'ב': 'ש', 'ג': 'ר', 'ד': 'ק', 'ה': 'צ', 'ו': 'פ', 'ז': 'ע', 'ח': 'ס', 'ט': 'נ',
+      'י': 'מ', 'כ': 'ל', 'ל': 'כ', 'מ': 'י', 'נ': 'ט', 'ס': 'ח', 'ע': 'ז', 'פ': 'ו', 'צ': 'ה',
+      'ק': 'ד', 'ר': 'ג', 'ש': 'ב', 'ת': 'א'
+    }
+    
+    return text.split('').map(char => {
+      // Convert final letter to regular letter first
+      const regularChar = finalToRegular[char] || char
+      // Apply Atbash conversion
+      return atbashMap[regularChar] || char
+    }).join('')
+  }
+
+  const atbashOutput = useMemo(() => {
+    return convertAtbash(atbashInput)
+  }, [atbashInput])
+
+  // Atbash correspondence table data
+  const atbashTable = [
+    { letter: 'א', atbash: 'ת' },
+    { letter: 'ב', atbash: 'ש' },
+    { letter: 'ג', atbash: 'ר' },
+    { letter: 'ד', atbash: 'ק' },
+    { letter: 'ה', atbash: 'צ' },
+    { letter: 'ו', atbash: 'פ' },
+    { letter: 'ז', atbash: 'ע' },
+    { letter: 'ח', atbash: 'ס' },
+    { letter: 'ט', atbash: 'נ' },
+    { letter: 'י', atbash: 'מ' },
+    { letter: 'כ', atbash: 'ל' },
+    { letter: 'ל', atbash: 'כ' },
+    { letter: 'מ', atbash: 'י' },
+    { letter: 'נ', atbash: 'ט' },
+    { letter: 'ס', atbash: 'ח' },
+    { letter: 'ע', atbash: 'ז' },
+    { letter: 'פ', atbash: 'ו' },
+    { letter: 'צ', atbash: 'ה' },
+    { letter: 'ק', atbash: 'ד' },
+    { letter: 'ר', atbash: 'ג' },
+    { letter: 'ש', atbash: 'ב' },
+    { letter: 'ת', atbash: 'א' }
+  ]
 
   // Generate recursive number name chain for a specific gender
   const getNumberNameChain = (num, gender = 'masculine', maxSteps = 20) => {
@@ -215,7 +272,7 @@ export default function Home() {
             className={`tab ${activeTab === 'calculator' ? 'active' : ''}`}
             onClick={() => setActiveTab('calculator')}
           >
-            מחשבון גימטריה
+            גימטריא
           </button>
           <button
             className={`tab ${activeTab === 'numbers' ? 'active' : ''}`}
@@ -234,6 +291,12 @@ export default function Home() {
             onClick={() => setActiveTab('number')}
           >
             מספר
+          </button>
+          <button
+            className={`tab ${activeTab === 'atbash' ? 'active' : ''}`}
+            onClick={() => setActiveTab('atbash')}
+          >
+            א״ת ב״ש
           </button>
         </div>
 
@@ -579,6 +642,39 @@ export default function Home() {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'atbash' && (
+          <div className="atbash-section">
+            <div className="atbash-correspondence-table">
+              <div className="atbash-table">
+                {atbashTable.map((item, index) => (
+                  <div key={index} className="atbash-table-row">
+                    <div className="atbash-table-letter">{item.letter}</div>
+                    <div className="atbash-table-arrow">↔</div>
+                    <div className="atbash-table-letter">{item.atbash}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="atbash-input-control">
+              <input
+                id="atbash-input"
+                type="text"
+                value={atbashInput}
+                onChange={(e) => setAtbashInput(e.target.value)}
+                className="atbash-input"
+                dir="rtl"
+                placeholder="הכנס טקסט..."
+              />
+            </div>
+            {atbashOutput && (
+              <div className="atbash-result">
+                <div className="atbash-result-label">תוצאה:</div>
+                <div className="atbash-result-value">{atbashOutput}</div>
               </div>
             )}
           </div>
