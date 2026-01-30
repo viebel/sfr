@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { calculateGematria } from '../utils/gematria'
 import { generateHebrewNumbers, getHebrewNumberName } from '../utils/hebrewNumbers'
 
@@ -53,6 +53,31 @@ export default function Home() {
   const [maxSteps, setMaxSteps] = useState(20)
   const [atbashInput, setAtbashInput] = useState('')
   const gematria = calculateGematria(input)
+  const calculatorInputRef = useRef(null)
+  const numberInputRef = useRef(null)
+  const atbashInputRef = useRef(null)
+
+  // Scroll to top when tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [activeTab])
+
+  // Focus input when tab changes (also runs on initial mount)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (activeTab === 'calculator' && calculatorInputRef.current) {
+          calculatorInputRef.current.focus({ preventScroll: true })
+        } else if (activeTab === 'number' && numberInputRef.current) {
+          numberInputRef.current.focus({ preventScroll: true })
+        } else if (activeTab === 'atbash' && atbashInputRef.current) {
+          atbashInputRef.current.focus({ preventScroll: true })
+        }
+      })
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [activeTab])
 
   // Atbash conversion function
   const convertAtbash = (text) => {
@@ -262,10 +287,20 @@ export default function Home() {
         <title>ס.פ.ר</title>
         <meta name="description" content="ס.פ.ר" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;600;700&display=swap"
+          rel="stylesheet"
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="container">
         <h1 className="title">ס.פ.ר</h1>
+        <div className="subtitle">
+          <div>בשלשה ספרים</div>
+          <div>בספר וספר וספור</div>
+        </div>
         
         <div className="tabs">
           <button
@@ -303,12 +338,13 @@ export default function Home() {
         {activeTab === 'calculator' && (
           <div className="calculator">
             <input
+              ref={calculatorInputRef}
               type="text"
               className="text-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="הכנס מילה..."
               dir="rtl"
+              autoFocus
             />
             {input && (
               <div className="result">
@@ -534,8 +570,8 @@ export default function Home() {
         {activeTab === 'number' && (
           <div className="number-section">
             <div className="number-input-control">
-              <label htmlFor="number-input">הכנס מספר:</label>
               <input
+                ref={numberInputRef}
                 id="number-input"
                 type="number"
                 value={numberInput}
@@ -545,7 +581,6 @@ export default function Home() {
                 }}
                 className="number-input"
                 dir="ltr"
-                placeholder="מספר..."
               />
             </div>
             <div className="number-steps-control">
@@ -662,13 +697,13 @@ export default function Home() {
             </div>
             <div className="atbash-input-control">
               <input
+                ref={atbashInputRef}
                 id="atbash-input"
                 type="text"
                 value={atbashInput}
                 onChange={(e) => setAtbashInput(e.target.value)}
                 className="atbash-input"
                 dir="rtl"
-                placeholder="הכנס טקסט..."
               />
             </div>
             {atbashOutput && (

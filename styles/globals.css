@@ -31,7 +31,7 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 2rem;
 }
 
@@ -42,6 +42,16 @@ a {
   margin: 0 0 2rem 0;
   color: #000;
   letter-spacing: 0.1em;
+  font-family: 'Frank Ruhl Libre', serif;
+}
+
+.subtitle {
+  text-align: center;
+  margin: -1rem 0 2rem 0;
+  color: #333;
+  font-size: 1.75rem;
+  line-height: 1.6;
+  font-family: 'Frank Ruhl Libre', serif;
 }
 
 .tabs {
