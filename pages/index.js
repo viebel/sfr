@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { calculateGematria } from '../utils/gematria'
 import { generateHebrewNumbers, getHebrewNumberName } from '../utils/hebrewNumbers'
@@ -39,6 +40,7 @@ hebrewLetters.forEach(item => {
 })
 
 export default function Home() {
+  const router = useRouter()
   const [input, setInput] = useState('')
   const [activeTab, setActiveTab] = useState('calculator')
   const [minNumber, setMinNumber] = useState(1)
@@ -58,11 +60,61 @@ export default function Home() {
   const numberInputRef = useRef(null)
   const atbashInputRef = useRef(null)
   const kuzooInputRef = useRef(null)
+  const hasHydratedFromUrl = useRef(false)
+  const isSyncingUrl = useRef(false)
 
   // Scroll to top when tab changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [activeTab])
+
+  // Hydrate state from URL query for deep links and back/forward nav
+  useEffect(() => {
+    if (!router.isReady) return
+    if (isSyncingUrl.current) {
+      isSyncingUrl.current = false
+      return
+    }
+
+    const getQueryValue = (value) => {
+      if (Array.isArray(value)) return value[0]
+      return value
+    }
+    const getString = (key, fallback = '') => {
+      const value = getQueryValue(router.query[key])
+      return typeof value === 'string' ? value : fallback
+    }
+    const getInt = (key, fallback) => {
+      const value = parseInt(getString(key, ''), 10)
+      return Number.isNaN(value) ? fallback : value
+    }
+    const getBool = (key, fallback = false) => {
+      const value = getString(key, '')
+      if (value === '1') return true
+      if (value === '0') return false
+      return fallback
+    }
+
+    const nextActiveTab = getString('tab', activeTab)
+    const allowedTabs = new Set(['calculator', 'numbers', 'letters', 'number', 'atbash', 'kuzoo'])
+    if (allowedTabs.has(nextActiveTab)) setActiveTab(nextActiveTab)
+
+    setInput(getString('input', input))
+    setMinNumber(getInt('min', minNumber))
+    setMaxNumber(getInt('max', maxNumber))
+    setCalculatedMin(getInt('cmin', calculatedMin))
+    setCalculatedMax(getInt('cmax', calculatedMax))
+    setShowFixedPoints(getBool('fixed', showFixedPoints))
+    setShowMilouyOfMilouy(getBool('milouy', showMilouyOfMilouy))
+    setMilouyApplications(getInt('milouyApps', milouyApplications))
+    setHideMilouyim(getBool('hideMilouyim', hideMilouyim))
+    setNumberInput(getString('numberInput', numberInput))
+    setMaxSteps(getInt('maxSteps', maxSteps))
+    setAtbashInput(getString('atbashInput', atbashInput))
+    setKuzooInput(getString('kuzooInput', kuzooInput))
+
+    hasHydratedFromUrl.current = true
+  }, [router.isReady, router.query])
 
   // Focus input when tab changes (also runs on initial mount)
   useEffect(() => {
@@ -82,6 +134,61 @@ export default function Home() {
 
     return () => clearTimeout(timer)
   }, [activeTab])
+
+  // Sync state to URL query for deep linking
+  useEffect(() => {
+    if (!router.isReady || !hasHydratedFromUrl.current) return
+
+    const nextQuery = {
+      tab: activeTab,
+      input: input || '',
+      min: String(minNumber),
+      max: String(maxNumber),
+      cmin: String(calculatedMin),
+      cmax: String(calculatedMax),
+      fixed: showFixedPoints ? '1' : '0',
+      milouy: showMilouyOfMilouy ? '1' : '0',
+      milouyApps: String(milouyApplications),
+      hideMilouyim: hideMilouyim ? '1' : '0',
+      numberInput: numberInput || '',
+      maxSteps: String(maxSteps),
+      atbashInput: atbashInput || '',
+      kuzooInput: kuzooInput || ''
+    }
+
+    const normalize = (value) => {
+      if (Array.isArray(value)) return value[0] ?? ''
+      return value ?? ''
+    }
+
+    const keys = Object.keys(nextQuery)
+    const isSame = keys.every((key) => {
+      return normalize(router.query[key]) === nextQuery[key]
+    })
+
+    if (isSame) return
+
+    isSyncingUrl.current = true
+    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true })
+  }, [
+    router.isReady,
+    router.pathname,
+    router.query,
+    activeTab,
+    input,
+    minNumber,
+    maxNumber,
+    calculatedMin,
+    calculatedMax,
+    showFixedPoints,
+    showMilouyOfMilouy,
+    milouyApplications,
+    hideMilouyim,
+    numberInput,
+    maxSteps,
+    atbashInput,
+    kuzooInput
+  ])
 
   // Atbash conversion function
   const convertAtbash = (text) => {
