@@ -55,7 +55,7 @@ export default function Home() {
   const [maxSteps, setMaxSteps] = useState(20)
   const [atbashInput, setAtbashInput] = useState('')
   const [kuzooInput, setKuzooInput] = useState('')
-  const gematria = calculateGematria(input)
+  const calculatorInputs = useMemo(() => input.split('\n'), [input])
   const calculatorInputRef = useRef(null)
   const numberInputRef = useRef(null)
   const atbashInputRef = useRef(null)
@@ -472,6 +472,25 @@ export default function Home() {
     if (finalMax !== maxNumber) setMaxNumber(finalMax)
   }
 
+  const updateCalculatorInput = (index, value) => {
+    const nextInputs = [...calculatorInputs]
+    nextInputs[index] = value
+    setInput(nextInputs.join('\n'))
+  }
+
+  const addCalculatorInput = () => {
+    setInput(previousInput => `${previousInput}\n`)
+  }
+
+  const removeCalculatorInput = (index) => {
+    if (calculatorInputs.length === 1) {
+      setInput('')
+      return
+    }
+
+    setInput(calculatorInputs.filter((_, inputIndex) => inputIndex !== index).join('\n'))
+  }
+
   return (
     <>
       <Head>
@@ -544,21 +563,41 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <input
-              ref={calculatorInputRef}
-              type="text"
-              className="text-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              dir="rtl"
-              autoFocus
-            />
-            {input && (
-              <div className="result">
-                <div className="result-label">גימטריה:</div>
-                <div className="result-value">{gematria}</div>
-              </div>
-            )}
+            <div className="calculator-inputs">
+              {calculatorInputs.map((calculatorInput, index) => (
+                <div className="calculator-input-row" key={index}>
+                  <input
+                    ref={index === 0 ? calculatorInputRef : null}
+                    type="text"
+                    className="text-input"
+                    value={calculatorInput}
+                    onChange={(e) => updateCalculatorInput(index, e.target.value)}
+                    dir="rtl"
+                    autoFocus={index === 0}
+                    aria-label={`Gematria input ${index + 1}`}
+                  />
+                  <div className="inline-result" aria-label={`Gematria result ${index + 1}`}>
+                    {calculatorInput.trim() ? calculateGematria(calculatorInput) : ''}
+                  </div>
+                  <button
+                    type="button"
+                    className="remove-input-button"
+                    onClick={() => removeCalculatorInput(index)}
+                    aria-label={`Remove gematria input ${index + 1}`}
+                  >
+                    −
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="add-input-button"
+                onClick={addCalculatorInput}
+                aria-label="Add gematria input"
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
 
