@@ -101,16 +101,70 @@ a {
 
 .gematria-correspondence-table {
   width: 100%;
-  padding: 1.5rem;
+  padding: 0;
   background: #f9f9f9;
   border-radius: 8px;
   border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.gematria-table-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.gematria-table-toggle:hover {
+  background: #f2f2f2;
+}
+
+.gematria-table-toggle-label {
+  font-family: 'David Libre', serif;
+}
+
+.gematria-table-toggle-chevron {
+  color: #666;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.gematria-table-toggle-chevron.open {
+  transform: rotate(180deg);
+}
+
+.gematria-table-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.28s ease, opacity 0.28s ease;
+}
+
+.gematria-table-wrapper.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.gematria-table-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .gematria-table {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0.75rem;
+  padding: 0 1.5rem 1.5rem;
   justify-items: center;
   font-family: 'David Libre', serif;
 }
@@ -158,6 +212,44 @@ a {
 .calculator-input-row .text-input {
   flex: 1;
   min-width: 0;
+}
+
+.reorder-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.reorder-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  color: #999;
+  background: #f7f7f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.reorder-button:hover:not(:disabled) {
+  color: #333;
+  background: #eee;
+  border-color: #ccc;
+}
+
+.reorder-button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.reorder-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .text-input {
@@ -1044,6 +1136,619 @@ a {
   word-break: break-word;
 }
 
+/* ---- ספור (story) tab ---- */
+.story-section {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Keep the whole ספור tab within the viewport; blocks scroll internally */
+.container-fill {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container-fill .story-section {
+  flex: 1;
+  min-height: 0;
+}
+
+.container-fill .story-numbers,
+.container-fill .story-editor {
+  flex-shrink: 0;
+}
+
+.container-fill .story-panels {
+  flex: 1;
+  min-height: 0;
+}
+
+.container-fill .story-output-block {
+  min-height: 0;
+}
+
+.container-fill .story-output {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+}
+
+.container-fill .story-matches {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+.container-fill .story-matches-wrapper.open {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.container-fill .story-matches-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.container-fill .story-matches-list {
+  max-height: none;
+  flex: 1;
+}
+
+/* Two-column row: highlighted text beside the התאמות (matches) panel */
+.story-panels {
+  display: flex;
+  align-items: stretch;
+  gap: 1.25rem;
+}
+
+.story-panels .story-output-block {
+  flex: 1.5;
+  min-width: 0;
+}
+
+.story-panels .story-matches {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.story-number-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.story-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  flex-shrink: 0;
+}
+
+.story-number-input {
+  width: 80px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  -moz-appearance: textfield;
+}
+
+.story-number-input::-webkit-outer-spin-button,
+.story-number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.story-number-input:focus {
+  outline: none;
+  border-color: #333;
+}
+
+.story-numbers .add-input-button {
+  width: 36px;
+  height: 36px;
+  font-size: 1.6rem;
+}
+
+.story-editor {
+  width: 100%;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.story-editor-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.story-editor-toggle:hover {
+  background: #f2f2f2;
+}
+
+.story-editor-toggle-label {
+  font-family: 'David Libre', serif;
+}
+
+.story-editor-toggle-chevron {
+  color: #666;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.story-editor-toggle-chevron.open {
+  transform: rotate(180deg);
+}
+
+.story-editor-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.28s ease, opacity 0.28s ease;
+}
+
+.story-editor-wrapper.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.story-editor-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.story-editor-content {
+  padding: 0 1rem 1rem;
+}
+
+.story-textarea {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.25rem;
+  line-height: 1.7;
+  text-align: right;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  direction: rtl;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  resize: vertical;
+  min-height: 110px;
+}
+
+.story-textarea:focus {
+  outline: none;
+  border-color: #333;
+}
+
+.story-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.story-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.story-legend-value {
+  font-weight: 700;
+  color: #000;
+  direction: ltr;
+}
+
+.story-legend-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #666;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 11px;
+  direction: ltr;
+}
+
+/* Output block = a card whose title bar is the color legend */
+.story-output-block {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* In-block hover tooltip (clamped by JS so it never leaves the block) */
+.story-tip {
+  position: absolute;
+  z-index: 25;
+  pointer-events: none;
+}
+
+.story-tip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.7rem;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  white-space: nowrap;
+  direction: rtl;
+}
+
+.story-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.story-output-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  min-width: 0;
+}
+
+.story-output-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.story-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  color: #444;
+  background: #eef0f2;
+  border: 1px solid #d5d8dc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.15s;
+}
+
+.story-export-btn:hover {
+  background: #e2e5e9;
+  border-color: #b8bcc2;
+  color: #111;
+}
+
+.story-export-btn:active {
+  transform: translateY(0.5px);
+}
+
+.story-block-icon {
+  color: #555;
+  flex-shrink: 0;
+}
+
+.story-output {
+  width: 100%;
+  padding: 1.5rem;
+  font-size: 1.25rem;
+  background: #fff;
+  direction: rtl;
+  text-align: justify;
+  text-align-last: right;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'David Libre', serif;
+}
+
+.story-token {
+  background-clip: border-box;
+}
+
+.story-token-highlighted {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Read-only hover tooltip: the gematriot detected on a highlighted word */
+.story-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-bottom: 9px;
+  z-index: 20;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.15s ease;
+}
+
+.story-token-highlighted:hover .story-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.story-tooltip-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.7rem;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
+  direction: rtl;
+}
+
+/* bordered arrow: outline triangle (::before) behind fill triangle (::after) */
+.story-tooltip-card::before,
+.story-tooltip-card::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.story-tooltip-card::before {
+  transform: translateX(-50%);
+  border-width: 7px;
+  border-color: #e6e6e6 transparent transparent transparent;
+}
+
+.story-tooltip-card::after {
+  transform: translateX(-50%) translateY(-1.5px);
+  border-width: 6px;
+  border-color: #fff transparent transparent transparent;
+}
+
+.story-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1;
+}
+
+.story-tooltip-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.story-tooltip-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111;
+  direction: ltr;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.story-tooltip-phrase {
+  font-size: 0.95rem;
+  color: #888;
+  font-family: 'David Libre', serif;
+}
+
+/* התאמות (matches) panel — foldable, curate which highlights are shown */
+.story-matches {
+  width: 100%;
+  background: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.story-matches-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.story-matches-toggle:hover {
+  background: #f2f2f2;
+}
+
+.story-matches-toggle-label {
+  font-family: 'David Libre', serif;
+}
+
+.story-matches-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.28s ease, opacity 0.28s ease;
+}
+
+.story-matches-wrapper.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.story-matches-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.story-matches-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border-top: 1px solid #eee;
+}
+
+.story-match-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  border-top: 1px solid #f4f4f4;
+  transition: background-color 0.15s;
+}
+
+.story-match-row:first-child {
+  border-top: none;
+}
+
+.story-match-row:hover {
+  background: #f7f7f7;
+}
+
+.story-match-check {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.story-match-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.story-match-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111;
+  direction: ltr;
+  min-width: 2.6rem;
+}
+
+.story-match-phrase {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.15rem;
+  color: #222;
+  font-family: 'David Libre', serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-match-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #999;
+  direction: ltr;
+}
+
+.story-match-row.excluded .story-match-phrase {
+  text-decoration: line-through;
+  color: #b0b0b0;
+}
+
+.story-match-row.excluded .story-match-value {
+  color: #bbb;
+}
+
+.story-match-row.excluded .story-match-dot {
+  opacity: 0.3;
+}
+
+/* Floating badge showing the gematria value of the selected text */
+.story-selection-badge {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 8px));
+  z-index: 30;
+  padding: 0.25rem 0.7rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  background: #111;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  direction: ltr;
+  white-space: nowrap;
+}
+
+.story-selection-badge::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #111;
+}
+
 @media (max-width: 768px) {
   .title {
     font-size: 2.5rem;
@@ -1210,6 +1915,23 @@ a {
 
   .atbash-table-title {
     font-size: 1.1rem;
+  }
+
+  .story-textarea {
+    font-size: 1.1rem;
+  }
+
+  .story-output {
+    font-size: 1.15rem;
+    padding: 1rem;
+  }
+
+  .story-number-input {
+    width: 70px;
+  }
+
+  .story-panels {
+    flex-direction: column;
   }
 }
 
