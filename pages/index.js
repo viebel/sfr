@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { calculateGematria } from '../utils/gematria'
@@ -76,6 +77,9 @@ export default function Home() {
   const [storyNumbers, setStoryNumbers] = useState([''])
   const [showStoryEditor, setShowStoryEditor] = useState(true)
   const [showMatches, setShowMatches] = useState(true)
+  const [ignorePunctuation, setIgnorePunctuation] = useState(false)
+  const [followMode, setFollowMode] = useState(true)
+  const [matchesSpacer, setMatchesSpacer] = useState(0)
   const [invalidatedMatches, setInvalidatedMatches] = useState([])
   const [selectionInfo, setSelectionInfo] = useState(null)
   const [hoverTip, setHoverTip] = useState(null)
@@ -89,7 +93,10 @@ export default function Home() {
   const kuzooInputRef = useRef(null)
   const storyInputRef = useRef(null)
   const storyOutputRef = useRef(null)
+  const matchesListRef = useRef(null)
   const hoverTipRef = useRef(null)
+  const scrollSource = useRef(null)
+  const scrollTimer = useRef(null)
   const hasHydratedFromUrl = useRef(false)
   const isSyncingUrl = useRef(false)
   const rowRefs = useRef([])
@@ -101,8 +108,12 @@ export default function Home() {
   }, [activeTab])
 
   // Hide the selection-value badge when a new click/selection starts
+  // (but not when clicking the badge itself, e.g. its "add" button)
   useEffect(() => {
-    const clear = () => setSelectionInfo(null)
+    const clear = (e) => {
+      if (e.target.closest && e.target.closest('.story-selection-badge')) return
+      setSelectionInfo(null)
+    }
     document.addEventListener('mousedown', clear)
     return () => document.removeEventListener('mousedown', clear)
   }, [])
@@ -160,6 +171,8 @@ export default function Home() {
     }
     setShowStoryEditor(getBool('storyEditor', showStoryEditor))
     setShowMatches(getBool('storyMatches', showMatches))
+    setIgnorePunctuation(getBool('storyIgnorePunct', ignorePunctuation))
+    setFollowMode(getBool('storyFollow', followMode))
     const storyInvalidRaw = getString('storyInvalid', '')
     if (storyInvalidRaw) setInvalidatedMatches(storyInvalidRaw.split('~').filter(Boolean))
 
@@ -211,6 +224,8 @@ export default function Home() {
       storyNumbers: storyNumbers.map((s) => String(s).trim()).filter(Boolean).join(','),
       storyEditor: showStoryEditor ? '1' : '0',
       storyMatches: showMatches ? '1' : '0',
+      storyIgnorePunct: ignorePunctuation ? '1' : '0',
+      storyFollow: followMode ? '1' : '0',
       storyInvalid: invalidatedMatches.join('~')
     }
 
@@ -251,6 +266,8 @@ export default function Home() {
     storyNumbers,
     showStoryEditor,
     showMatches,
+    ignorePunctuation,
+    followMode,
     invalidatedMatches
   ])
 
@@ -643,6 +660,36 @@ export default function Home() {
     })
   }
 
+  // Add the currently-selected text's gematria value to the highlighted numbers
+  const addSelectionValue = () => {
+    if (!selectionInfo || !selectionInfo.value) return
+    const v = String(selectionInfo.value)
+    setStoryNumbers((prev) => {
+      const vals = prev.map((s) => String(s).trim())
+      if (vals.includes(v)) return prev
+      const emptyIdx = vals.indexOf('')
+      if (emptyIdx >= 0) {
+        const next = [...prev]
+        next[emptyIdx] = v
+        return next
+      }
+      return [...prev, v]
+    })
+    setSelectionInfo(null)
+    const sel = window.getSelection()
+    if (sel) sel.removeAllRanges()
+  }
+
+  // Follow mode: scrolling the text scrolls the matches list in lockstep (and back)
+  const syncPanelScroll = (self, other) => {
+    if (!followMode || !self || !other) return
+    if (scrollSource.current && scrollSource.current !== self) return
+    scrollSource.current = self
+    other.scrollTop = self.scrollTop
+    if (scrollTimer.current) clearTimeout(scrollTimer.current)
+    scrollTimer.current = setTimeout(() => { scrollSource.current = null }, 120)
+  }
+
   // Export just the highlighted text (no title bar) as a PNG or PDF
   const exportStory = async (format) => {
     const output = storyOutputRef.current
@@ -702,7 +749,7 @@ export default function Home() {
   }
 
   // Clamp the hover tooltip so it always stays inside the output block
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const tip = hoverTipRef.current
     const block = storyOutputRef.current && storyOutputRef.current.closest('.story-output-block')
     if (!tip || !hoverTip || !block) return
@@ -737,12 +784,21 @@ export default function Home() {
       storyText.split(/(\s+)/).forEach((part) => {
         if (part === '') return
         const isSpace = /^\s+$/.test(part)
-        // Displayed text strips only commas (periods, quotes, ... are kept); gematria
-        // is unaffected since calculateGematria already ignores non-Hebrew characters.
-        const display = isSpace ? part : part.replace(/,/g, '')
-        tokens.push({ text: part, display, isSpace, gematria: isSpace ? 0 : calculateGematria(part), line: lineNo })
+        // The displayed text is NEVER modified — the user's punctuation choice only
+        // affects the calculation. `clean` is the term shown in the matches list
+        // (mid-word signs dropped, edge punctuation trimmed). `hasEdgePunct` drives
+        // group cutting. Gematria already ignores non-Hebrew characters.
+        let clean = part
+        let hasEdgePunct = false
+        if (!isSpace) {
+          const noMid = part.replace(/(?<=\p{L})[^\p{L}\p{M}\s]+(?=\p{L})/gu, '')
+          hasEdgePunct = /\p{P}/u.test(noMid)
+          clean = noMid.replace(/^\p{P}+|\p{P}+$/gu, '')
+        }
+        tokens.push({ text: part, display: part, clean, isSpace, gematria: isSpace ? 0 : calculateGematria(part), line: lineNo })
         if (isSpace) lineNo += (part.match(/\n/g) || []).length
-        else if (part.includes('.')) lineNo += 1 // a period ends a sequence, like a line break
+        // When not ignoring punctuation, any (edge) punctuation cuts the group
+        else if (!ignorePunctuation && hasEdgePunct) lineNo += 1
       })
     }
 
@@ -774,7 +830,7 @@ export default function Home() {
             // Content-based key so an invalidation survives token shifts on edit
             const spanWords = []
             for (let t = wordPositions[a]; t <= wordPositions[b]; t++) {
-              if (!tokens[t].isSpace) spanWords.push(tokens[t].display)
+              if (!tokens[t].isSpace) spanWords.push(tokens[t].clean)
             }
             const key = `${sum}|${spanWords.join(' ')}`
             matches.push({
@@ -860,7 +916,7 @@ export default function Home() {
     }
 
     return { tokens, tokenCover, laneCount, matchCount: matches.length, counts, matchList, findSpans }
-  }, [storyText, storyLegend, invalidatedMatches])
+  }, [storyText, storyLegend, invalidatedMatches, ignorePunctuation])
 
   // Re-measure the layout on resize (matches-row alignment depends on wrapping)
   useEffect(() => {
@@ -871,9 +927,10 @@ export default function Home() {
 
   // Place each התאמות row roughly at the vertical position of its first
   // occurrence in the highlighted text (approximate; ignores independent scroll).
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const output = storyOutputRef.current
-    if (!output || !showMatches) { setMatchTops([]); return }
+    // Only align rows to text lines in follow mode; otherwise show a compact list
+    if (!output || !showMatches || !followMode) { setMatchTops([]); setMatchesSpacer(0); return }
     const outTop = output.getBoundingClientRect().top - output.scrollTop
     const ROW_H = 44
     let cursor = 0
@@ -886,7 +943,9 @@ export default function Home() {
       return margin
     })
     setMatchTops(tops)
-  }, [storyText, storyAnalysis, showMatches, layoutTick])
+    // Pad the list so it can scroll the full text height in follow mode
+    setMatchesSpacer(followMode ? Math.max(0, output.scrollHeight - cursor) : 0)
+  }, [storyText, storyAnalysis, showMatches, followMode, layoutTick])
 
   return (
     <>
@@ -952,6 +1011,10 @@ export default function Home() {
           >
             ספור
           </button>
+          {/* Not a tab of this page but a route of its own — the PDF reader */}
+          <Link href="/rtl" className="tab tab-link">
+            ספר
+          </Link>
         </div>
 
         {activeTab === 'calculator' && (
@@ -1492,6 +1555,22 @@ export default function Home() {
               >
                 +
               </button>
+              <label className="story-punct-toggle">
+                <input
+                  type="checkbox"
+                  checked={ignorePunctuation}
+                  onChange={(e) => setIgnorePunctuation(e.target.checked)}
+                />
+                התעלם מסימני פיסוק
+              </label>
+              <label className="story-punct-toggle">
+                <input
+                  type="checkbox"
+                  checked={followMode}
+                  onChange={(e) => setFollowMode(e.target.checked)}
+                />
+                מעקב גלילה
+              </label>
             </div>
 
             <div className="story-editor">
@@ -1568,7 +1647,8 @@ export default function Home() {
                 onMouseUp={handleStorySelection}
                 onMouseOver={handleTokenHover}
                 onMouseLeave={() => setHoverTip(null)}
-                style={{ lineHeight: storyAnalysis.laneCount > 0 ? 1.9 + storyAnalysis.laneCount * 0.5 : 1.9 }}
+                onScroll={() => syncPanelScroll(storyOutputRef.current, matchesListRef.current)}
+                style={{ lineHeight: storyAnalysis.laneCount > 0 ? 1.3 + storyAnalysis.laneCount * 0.35 : 1.4 }}
               >
                 {storyAnalysis.tokens.map((tok, i) => {
                   const cov = storyAnalysis.tokenCover[i]
@@ -1645,7 +1725,11 @@ export default function Home() {
                   </button>
                   <div className={`story-matches-wrapper ${showMatches ? 'open' : ''}`}>
                     <div className="story-matches-inner">
-                      <div className="story-matches-list">
+                      <div
+                        className="story-matches-list"
+                        ref={matchesListRef}
+                        onScroll={() => syncPanelScroll(matchesListRef.current, storyOutputRef.current)}
+                      >
                         {storyAnalysis.matchList.map((m, index) => (
                           <label
                             className={`story-match-row ${m.invalid ? 'excluded' : ''}`}
@@ -1657,7 +1741,7 @@ export default function Home() {
                               className="story-match-check"
                               checked={!m.invalid}
                               onChange={() => toggleMatchValidity(m.key)}
-                              style={{ accentColor: m.color }}
+                              style={{ '--check-color': m.color }}
                             />
                             <span className="story-match-dot" style={{ background: m.color }} aria-hidden="true" />
                             <span className="story-match-value">{m.value}</span>
@@ -1665,6 +1749,7 @@ export default function Home() {
                             {m.count > 1 && <span className="story-match-count">×{m.count}</span>}
                           </label>
                         ))}
+                        {matchesSpacer > 0 && <div style={{ height: `${matchesSpacer}px`, flexShrink: 0 }} aria-hidden="true" />}
                       </div>
                     </div>
                   </div>
@@ -1678,7 +1763,18 @@ export default function Home() {
                 className="story-selection-badge"
                 style={{ top: `${selectionInfo.top}px`, left: `${selectionInfo.left}px` }}
               >
-                {selectionInfo.value}
+                <span className="story-selection-value">{selectionInfo.value}</span>
+                <button
+                  type="button"
+                  className="story-selection-add"
+                  onClick={addSelectionValue}
+                  aria-label="הוסף לרשימת המספרים"
+                  title="הוסף למספרים"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
               </div>
             )}
           </div>
