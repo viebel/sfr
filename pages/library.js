@@ -2,7 +2,8 @@ import Head from 'next/head'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AppNav from '../components/AppNav'
 import { bookHref } from '../data/books'
-import { lastPageOf, readHistory, recordRead } from '../utils/readingHistory'
+import { pickView, readHistory, readingStateOf, recordRead } from '../utils/readingHistory'
+import { loadSession, saveSession } from '../utils/readerSession'
 
 // pdf.js is loaded lazily, in the browser, and outside the bundler: webpackIgnore
 // keeps this a native dynamic import of the copy scripts/copy-pdf-worker.js puts
@@ -172,13 +173,6 @@ const IconExpand = () => (
     <path d="M9 3.5H5.5a2 2 0 0 0-2 2V9M15 3.5h3.5a2 2 0 0 1 2 2V9M9 20.5H5.5a2 2 0 0 1-2-2V15M15 20.5h3.5a2 2 0 0 0 2-2V15" />
   </Icon>
 )
-const IconDoc = ({ size = 44 }) => (
-  <Icon size={size}>
-    <path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z" />
-    <path d="M14 3.5v5h5" />
-    <path d="M8.5 13h7M8.5 16.5h4.5" />
-  </Icon>
-)
 // Lines of text with the arrow of the direction they are read in.
 const IconDirection = ({ rtl }) => (
   <Icon>
@@ -320,24 +314,31 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
 
 // Everything a tab holds. Each open document keeps its own place, zoom and
 // binding, so switching between two books never disturbs either of them.
-function newDoc({ key, title, bookId, dir, page }) {
+// What a book is read with, until it is read with something else.
+const defaultView = () => ({
+  spread: true,
+  coverAlone: true,
+  fitMode: 'page',
+  zoomIndex: zoomSteps.indexOf(1),
+  rotation: 0
+})
+
+function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
+  const settings = { ...defaultView(), ...(view || {}) }
   return {
     key,
     title,
     bookId: bookId || '',
-    dir,
-    status: 'loading', // loading | ready | error
+    source,
+    status, // idle | loading | ready | error
     error: '',
     progress: 0,
     pdfDoc: null,
     numPages: 0,
     page: page || 1,
     pageDraft: String(page || 1),
-    spread: true,
-    coverAlone: true,
-    fitMode: 'page',
-    zoomIndex: zoomSteps.indexOf(1),
-    rotation: 0
+    ...settings,
+    dir: dir || settings.dir || 'rtl'
   }
 }
 
@@ -347,6 +348,7 @@ export default function Library({ books = [] }) {
   const [dragging, setDragging] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [history, setHistory] = useState([])
+  const [hydrated, setHydrated] = useState(false)
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
@@ -384,29 +386,10 @@ export default function Library({ books = [] }) {
 
   // --- document loading -----------------------------------------------------
 
-  const openDoc = useCallback(
-    async ({ source, title, bookId = '', dir: wanted, page }) => {
-      // A book already open is brought forward rather than loaded a second time.
-      if (bookId) {
-        const open = docsRef.current.find(d => d.bookId === bookId)
-        if (open) {
-          setActiveKey(open.key)
-          if (page) patchDoc(open.key, { page, pageDraft: String(page) })
-          setLibraryOpen(false)
-          return
-        }
-      }
-
-      // Where to land: an explicit page wins, then wherever this book was left.
-      const start = page || (bookId ? lastPageOf(bookId) : 0) || 1
-      const key = `doc${++keySeqRef.current}`
-      setDocs(ds => [
-        ...ds,
-        newDoc({ key, title, bookId, dir: guessDir(title, wanted), page: start })
-      ])
-      setActiveKey(key)
-      setLibraryOpen(false)
-
+  const loadInto = useCallback(
+    async (key, source, fallbackPage) => {
+      if (!source) return
+      patchDoc(key, { status: 'loading', error: '', progress: 0 })
       try {
         const pdfjs = await loadPdfjs()
         const task = pdfjs.getDocument({ ...pdfjsOptions, ...source })
@@ -421,7 +404,8 @@ export default function Library({ books = [] }) {
           task.destroy()
           return
         }
-        const landing = Math.min(Math.max(start, 1), pdf.numPages)
+        const wanted = docsRef.current.find(d => d.key === key)?.page || fallbackPage || 1
+        const landing = Math.min(Math.max(wanted, 1), pdf.numPages)
         patchDoc(key, {
           pdfDoc: pdf,
           numPages: pdf.numPages,
@@ -435,6 +419,54 @@ export default function Library({ books = [] }) {
       }
     },
     [patchDoc]
+  )
+
+  const activate = useCallback(
+    key => {
+      setActiveKey(key)
+      // A tab restored from the last session holds its place and its settings
+      // but no document: it is fetched the moment it is brought forward.
+      const target = docsRef.current.find(d => d.key === key)
+      if (target?.status === 'idle') loadInto(key, target.source, target.page)
+    },
+    [loadInto]
+  )
+
+  const openDoc = useCallback(
+    ({ source, title, bookId = '', dir: declared, page }) => {
+      // A book already open is brought forward rather than loaded a second time.
+      if (bookId) {
+        const open = docsRef.current.find(d => d.bookId === bookId)
+        if (open) {
+          if (page) patchDoc(open.key, { page, pageDraft: String(page) })
+          setLibraryOpen(false)
+          activate(open.key)
+          return
+        }
+      }
+
+      // Where to land, and how to read: an explicit page wins, then whatever
+      // this book was last left at, with the settings it was left in.
+      const saved = bookId ? readingStateOf(bookId) : { page: 0, view: null }
+      const start = page || saved.page || 1
+      const key = `doc${++keySeqRef.current}`
+      setDocs(ds => [
+        ...ds,
+        newDoc({
+          key,
+          title,
+          bookId,
+          source,
+          page: start,
+          view: saved.view,
+          dir: guessDir(title, saved.view?.dir || declared)
+        })
+      ])
+      setActiveKey(key)
+      setLibraryOpen(false)
+      loadInto(key, source, start)
+    },
+    [activate, loadInto, patchDoc]
   )
 
   const openFile = useCallback(
@@ -481,28 +513,78 @@ export default function Library({ books = [] }) {
     }
   }, [])
 
-  // Deep link: /library?book=…&page=… or ?url=… — read straight from the URL,
-  // since this is a static page and router.query is only populated after
-  // hydration settles.
+  /*
+   * Opening the page: the books that were open come back as tabs, each with the
+   * page and the settings it was last read with. A ?book= or ?url= link takes
+   * the front; otherwise the tab that was in front stays in front. Only that
+   * one is fetched — the others wait to be clicked.
+   */
   useEffect(() => {
     if (bootedRef.current) return
     bootedRef.current = true
     setHistory(readHistory())
+
     const params = new URLSearchParams(window.location.search)
-    const wanted = parseInt(params.get('page'), 10)
-    const page = Number.isFinite(wanted) && wanted > 0 ? wanted : undefined
-    const id = params.get('book')
-    if (id) {
-      const book = books.find(b => b.id === id)
-      if (book) openBook(book, page)
-      return
-    }
+    const wantedPage = parseInt(params.get('page'), 10)
+    const page = Number.isFinite(wantedPage) && wantedPage > 0 ? wantedPage : 0
+    const linkedId = params.get('book')
     const url = params.get('url')
-    if (url) {
-      const name = decodeURIComponent(url.split('/').pop() || 'PDF')
-      openDoc({ source: { url }, title: name, page })
+
+    const fromBook = book => {
+      const saved = readingStateOf(book.id)
+      return newDoc({
+        key: `doc${++keySeqRef.current}`,
+        title: book.title,
+        bookId: book.id,
+        source: { url: bookHref(book) },
+        page: saved.page || 1,
+        view: saved.view,
+        dir: guessDir(book.title, saved.view?.dir || book.dir),
+        status: 'idle'
+      })
     }
-  }, [books, openBook, openDoc])
+
+    const session = loadSession()
+    const restored = session.docs
+      .map(entry => books.find(b => b.id === entry.bookId))
+      .filter(Boolean)
+      .map(fromBook)
+
+    let front = null
+    const linked = linkedId ? books.find(b => b.id === linkedId) : null
+    if (linked) {
+      front = restored.find(d => d.bookId === linked.id)
+      if (!front) {
+        front = fromBook(linked)
+        restored.push(front)
+      }
+      if (page) {
+        front.page = page
+        front.pageDraft = String(page)
+      }
+    } else if (url) {
+      const name = decodeURIComponent(url.split('/').pop() || 'PDF')
+      front = newDoc({
+        key: `doc${++keySeqRef.current}`,
+        title: name,
+        source: { url },
+        page: page || 1,
+        dir: guessDir(name),
+        status: 'idle'
+      })
+      restored.push(front)
+    } else if (session.active) {
+      front = restored.find(d => d.bookId === session.active)
+    }
+    if (!front) front = restored[0] || null
+
+    if (restored.length) setDocs(restored)
+    if (front) {
+      setActiveKey(front.key)
+      loadInto(front.key, front.source, front.page)
+    }
+    setHydrated(true)
+  }, [books, loadInto])
 
   // Keep the address bar on the book being read, so a reload — or a link handed
   // to someone else — comes back to this page of this book.
@@ -518,15 +600,32 @@ export default function Library({ books = [] }) {
     }
   }, [doc])
 
-  // The reading memory, written as you turn pages.
+  // The reading memory: the page reached and the settings it was read with,
+  // written as you turn pages and as you change how the book is displayed.
   useEffect(() => {
     if (!doc || doc.status !== 'ready' || !doc.bookId) return
     const timer = setTimeout(() => {
-      recordRead({ id: doc.bookId, title: doc.title, page: doc.page, numPages: doc.numPages })
+      recordRead({
+        id: doc.bookId,
+        title: doc.title,
+        page: doc.page,
+        numPages: doc.numPages,
+        view: pickView(doc)
+      })
       setHistory(readHistory())
     }, 600)
     return () => clearTimeout(timer)
   }, [doc])
+
+  // Which books are open, and which one is in front. Held back until the
+  // restore above has run, so an empty first render cannot erase the session.
+  useEffect(() => {
+    if (!hydrated) return
+    saveSession({
+      docs: docs.filter(d => d.bookId).map(d => ({ bookId: d.bookId, title: d.title })),
+      active: doc?.bookId || ''
+    })
+  }, [hydrated, docs, doc])
 
   useEffect(
     () => () => {
@@ -934,7 +1033,7 @@ export default function Library({ books = [] }) {
                   role="tab"
                   aria-selected={d.key === activeKey}
                   className="pdfr-tab-label"
-                  onClick={() => setActiveKey(d.key)}
+                  onClick={() => activate(d.key)}
                   title={d.title}
                 >
                   {d.status === 'loading' && <span className="pdfr-tab-spin" aria-hidden="true" />}
@@ -970,36 +1069,6 @@ export default function Library({ books = [] }) {
                     rotation={doc.rotation}
                   />
                 ))}
-              </div>
-            )}
-
-            {!doc && (
-              <div className="pdfr-empty">
-                <div className="pdfr-empty-card">
-                  <IconDoc />
-                  <div className="pdfr-empty-actions">
-                    {books.length > 0 && (
-                      <button
-                        type="button"
-                        className="pdfr-btn pdfr-btn-lg"
-                        onClick={() => setLibraryOpen(true)}
-                        title="ספרייה"
-                        aria-label="ספרייה"
-                      >
-                        <IconLibrary />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="pdfr-btn pdfr-btn-lg"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="פתיחת קובץ PDF"
-                      aria-label="פתיחת קובץ PDF"
-                    >
-                      <IconOpen />
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 

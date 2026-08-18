@@ -1,10 +1,25 @@
 /*
- * Where the reader was left off, per book, in localStorage. Only books of the
- * library are remembered: a file opened from disk has no stable identity to
- * come back to, and its path is not ours to keep.
+ * How each book was being read, in localStorage: the page reached, and the
+ * settings it was read with — binding direction, spread, fit, zoom, rotation.
+ * Reopening a book puts all of it back rather than starting from the cover in
+ * default settings.
+ *
+ * Only books of the library are remembered: a file opened from disk has no
+ * stable identity to come back to, and its path is not ours to keep.
  */
 const KEY = 'sfr.reading-history'
-const MAX = 20
+const MAX = 30
+
+// Every setting that belongs to one book rather than to the reader as a whole.
+export const VIEW_KEYS = ['dir', 'spread', 'coverAlone', 'fitMode', 'zoomIndex', 'rotation']
+
+export function pickView(source) {
+  const view = {}
+  VIEW_KEYS.forEach(k => {
+    if (source && source[k] !== undefined) view[k] = source[k]
+  })
+  return view
+}
 
 function load() {
   if (typeof window === 'undefined') return []
@@ -31,16 +46,27 @@ export function readHistory() {
   return load().sort((a, b) => (b.at || 0) - (a.at || 0))
 }
 
-export function lastPageOf(id) {
+// The page and the settings this book was last read with, if it ever was.
+export function readingStateOf(id) {
   const entry = load().find(e => e.id === id)
-  return entry?.page || 0
+  return { page: entry?.page || 0, view: entry?.view || null }
 }
 
-export function recordRead({ id, title, page, numPages }) {
+export function recordRead({ id, title, page, numPages, view }) {
   if (typeof window === 'undefined' || !id) return
-  const list = load().filter(e => e.id !== id)
-  list.unshift({ id, title, page, numPages, at: Date.now() })
-  save(list)
+  const list = load()
+  const previous = list.find(e => e.id === id)
+  save([
+    {
+      id,
+      title,
+      page,
+      numPages,
+      view: { ...(previous?.view || {}), ...pickView(view) },
+      at: Date.now()
+    },
+    ...list.filter(e => e.id !== id)
+  ])
 }
 
 export function forgetRead(id) {
