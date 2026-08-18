@@ -2391,21 +2391,8 @@ a {
   border-radius: 12px;
 }
 
-.pdfr-empty-title {
-  font-size: 1.6rem;
-  color: #333;
-  font-family: 'David Libre', serif;
-}
 
-.pdfr-empty-text {
-  font-size: 0.95rem;
-  color: #888;
-}
 
-.pdfr-empty-note {
-  font-size: 0.9rem;
-  color: #888;
-}
 
 .pdfr-empty-error {
   font-size: 0.9rem;

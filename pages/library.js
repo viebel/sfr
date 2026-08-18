@@ -977,10 +977,6 @@ export default function Library({ books = [] }) {
               <div className="pdfr-empty">
                 <div className="pdfr-empty-card">
                   <IconDoc />
-                  <div className="pdfr-empty-title">ספרייה</div>
-                  <div className="pdfr-empty-text">
-                    בחרו ספר מהספרייה, גררו לכאן קובץ PDF, או פתחו קובץ בעזרת הכפתור
-                  </div>
                   <div className="pdfr-empty-actions">
                     {books.length > 0 && (
                       <button
