@@ -21,16 +21,18 @@ function loadPdfjs() {
 
 // pdf.js fetches these by URL at runtime; without them PDFs using CID fonts,
 // non-embedded standard fonts or JPEG2000 images render wrong.
-// disableFontFace draws glyph outlines instead of installing an @font-face: the
-// browser's own advance widths do not match the PDF's, which visibly scatters
-// the letters of embedded Hebrew fonts.
+//
+// Font faces are left on (pdf.js's own default): the browser then rasterises
+// the embedded fonts with hinting, where disableFontFace paints bare outlines —
+// legible when zoomed in, grey mush at the size a page fitted to the window
+// gives 9pt type. Checked on the Hebrew books of the library, which is what the
+// flag had been turned on for: the letters land where they should.
 const pdfjsOptions = {
   cMapUrl: '/pdfjs/cmaps/',
   cMapPacked: true,
   standardFontDataUrl: '/pdfjs/standard_fonts/',
   wasmUrl: '/pdfjs/wasm/',
-  iccUrl: '/pdfjs/iccs/',
-  disableFontFace: true
+  iccUrl: '/pdfjs/iccs/'
 }
 
 const zoomSteps = [0.5, 0.67, 0.8, 0.9, 1, 1.15, 1.35, 1.6, 2, 2.5, 3, 4]
@@ -202,6 +204,23 @@ function guessDir(title, declared) {
   return /[֐-׿؀-ۿ]/.test(String(title || '')) ? 'rtl' : 'ltr'
 }
 
+/*
+ * How many device pixels to rasterise per CSS pixel. Matching the display's own
+ * ratio is the usual advice, and it is what makes small type look soft: on a
+ * 1x screen a page fitted to the window puts 9pt text on ~12 pixels, and the
+ * stems fall between them. Rendering above the display and letting the browser
+ * downscale spends memory to buy those in-between samples back.
+ */
+const maxRenderPixels = 16e6 // ~64 MB of canvas, per page
+function renderScale(viewport) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3)
+  const wanted = Math.min(Math.max(dpr * 1.5, 2), 4)
+  const area = viewport.width * viewport.height * wanted * wanted
+  return area > maxRenderPixels
+    ? Math.max(1, wanted * Math.sqrt(maxRenderPixels / area))
+    : wanted
+}
+
 function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation }) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
@@ -238,7 +257,7 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
       const textDiv = textRef.current
       if (!canvas || !textDiv) return
 
-      const outputScale = Math.min(window.devicePixelRatio || 1, 3)
+      const outputScale = renderScale(viewport)
       canvas.width = Math.floor(viewport.width * outputScale)
       canvas.height = Math.floor(viewport.height * outputScale)
       canvas.style.width = `${Math.floor(viewport.width)}px`
@@ -246,6 +265,9 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
       setSize({ width: Math.floor(viewport.width), height: Math.floor(viewport.height), scale })
 
       const context = canvas.getContext('2d', { alpha: false })
+      // Scans are images being shrunk to the page box; the default 'low'
+      // filter makes a bitonal scan crawl with aliasing.
+      context.imageSmoothingQuality = 'high'
       context.save()
       context.fillStyle = '#fff'
       context.fillRect(0, 0, canvas.width, canvas.height)
@@ -349,6 +371,7 @@ export default function Library({ books = [] }) {
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [history, setHistory] = useState([])
   const [hydrated, setHydrated] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
@@ -527,7 +550,7 @@ export default function Library({ books = [] }) {
     const params = new URLSearchParams(window.location.search)
     const wantedPage = parseInt(params.get('page'), 10)
     const page = Number.isFinite(wantedPage) && wantedPage > 0 ? wantedPage : 0
-    const linkedId = params.get('book')
+    const linkedId = (params.get('book') || '').normalize('NFC')
     const url = params.get('url')
 
     const fromBook = book => {
@@ -573,6 +596,8 @@ export default function Library({ books = [] }) {
         status: 'idle'
       })
       restored.push(front)
+    } else if (linkedId) {
+      setNotice('הספר לא נמצא בספרייה')
     } else if (session.active) {
       front = restored.find(d => d.bookId === session.active)
     }
@@ -1080,7 +1105,9 @@ export default function Library({ books = [] }) {
               </div>
             )}
 
-            {doc?.status === 'error' && <div className="pdfr-toast">{doc.error}</div>}
+            {(doc?.status === 'error' || notice) && (
+              <div className="pdfr-toast">{doc?.status === 'error' ? doc.error : notice}</div>
+            )}
 
             {libraryOpen && (
               <>
@@ -1141,7 +1168,6 @@ export default function Library({ books = [] }) {
           </div>
         </div>
 
-        <div className="pdfr-hint">{rtl ? '← קדימה · → אחורה · +/− זום' : '→ קדימה · ← אחורה · +/− זום'}</div>
       </div>
     </>
   )
@@ -1172,10 +1198,13 @@ export function getStaticProps() {
     .map(file => {
       const meta = bookMeta[file] || {}
       const name = file.replace(/\.pdf$/i, '')
+      // macOS stores "é" decomposed in a file name, and git keeps those bytes,
+      // so `file` is left alone — it is what the raw URL has to ask for. The id
+      // and the title are composed: they travel through links and comparisons.
       return {
-        id: meta.id || name,
+        id: (meta.id || name).normalize('NFC'),
         file,
-        title: meta.title || path.basename(name),
+        title: (meta.title || path.basename(name)).normalize('NFC'),
         author: meta.author || '',
         year: meta.year ? String(meta.year) : '',
         kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',

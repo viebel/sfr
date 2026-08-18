@@ -2523,15 +2523,6 @@ a {
   z-index: 10;
 }
 
-.pdfr-hint {
-  flex-shrink: 0;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.75rem;
-  color: #999;
-  text-align: center;
-  background: #fff;
-  border-top: 1px solid #e6e8ea;
-}
 
 /* --- pdf.js text layer (selectable text over the rendered page) ---------- */
 
@@ -2617,9 +2608,6 @@ a {
   }
 
 
-  .pdfr-hint {
-    display: none;
-  }
 }
 
 /* ==========================================================================
