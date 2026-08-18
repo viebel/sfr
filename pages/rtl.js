@@ -65,6 +65,23 @@ const IconLibrary = () => (
     <path d="M4 19.5h16" />
   </Icon>
 )
+// The two shelves of the library. Both are read at 20px in a panel header, so
+// they are drawn as silhouettes — stacked volumes, and a written scroll between
+// its rollers — rather than as outlines that collapse into a grey smudge.
+const IconBook = ({ size = 20 }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="5.5" width="17" height="5" rx="1.4" />
+    <rect x="3.5" y="13.5" width="17" height="5" rx="1.4" />
+    <path d="M7.5 5.5v5M7.5 13.5v5" />
+  </Icon>
+)
+const IconScroll = ({ size = 20 }) => (
+  <Icon size={size}>
+    <rect x="3.6" y="4.5" width="3" height="15" rx="1.5" />
+    <rect x="17.4" y="4.5" width="3" height="15" rx="1.5" />
+    <path d="M8.6 8.5h6.8M8.6 12h6.8M8.6 15.5h6.8" />
+  </Icon>
+)
 const IconClose = () => (
   <Icon>
     <path d="M6 6l12 12M18 6L6 18" />
@@ -537,6 +554,16 @@ export default function RtlReader({ books = [] }) {
     else el.requestFullscreen?.()
   }
 
+  // Printed books and manuscripts are two shelves of the same library — the
+  // reader tells them apart at a glance, and a title held by both (ספר המספר)
+  // stops being ambiguous.
+  const shelves = [
+    { kind: 'book', label: 'ספרים', icon: <IconBook /> },
+    { kind: 'manuscript', label: 'כתבי יד', icon: <IconScroll /> }
+  ]
+    .map(shelf => ({ ...shelf, items: books.filter(b => (b.kind || 'book') === shelf.kind) }))
+    .filter(shelf => shelf.items.length > 0)
+
   const submitPage = e => {
     e.preventDefault()
     const n = parseInt(pageDraft, 10)
@@ -815,21 +842,34 @@ export default function RtlReader({ books = [] }) {
                     </button>
                   </div>
                   <div className="pdfr-library-list">
-                    {books.map(book => (
-                      <button
-                        type="button"
-                        key={book.id}
-                        className={`pdfr-book${book.id === bookId ? ' on' : ''}`}
-                        onClick={() => openBook(book)}
-                        title={book.title}
-                      >
-                        <span className="pdfr-book-title">{book.title}</span>
-                        {(book.author || book.year) && (
-                          <span className="pdfr-book-meta">
-                            {[book.author, book.year].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                      </button>
+                    {shelves.map(shelf => (
+                      <div className="pdfr-library-shelf" key={shelf.kind}>
+                        <div
+                          className="pdfr-library-shelf-head"
+                          role="heading"
+                          aria-level={2}
+                          title={shelf.label}
+                          aria-label={shelf.label}
+                        >
+                          {shelf.icon}
+                        </div>
+                        {shelf.items.map(book => (
+                          <button
+                            type="button"
+                            key={book.id}
+                            className={`pdfr-book${book.id === bookId ? ' on' : ''}`}
+                            onClick={() => openBook(book)}
+                            title={book.title}
+                          >
+                            <span className="pdfr-book-title">{book.title}</span>
+                            {(book.author || book.year) && (
+                              <span className="pdfr-book-meta">
+                                {[book.author, book.year].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     ))}
                     {books.length === 0 && (
                       <div className="pdfr-library-empty">
@@ -883,7 +923,8 @@ export function getStaticProps() {
         file,
         title: meta.title || path.basename(name),
         author: meta.author || '',
-        year: meta.year ? String(meta.year) : ''
+        year: meta.year ? String(meta.year) : '',
+        kind: meta.kind === 'manuscript' ? 'manuscript' : 'book'
       }
     })
     .concat(releaseBooks)

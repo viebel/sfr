@@ -2322,6 +2322,30 @@ a {
   min-width: 0;
 }
 
+.pdfr-library-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+/* A shelf is announced by its icon alone; the rule carries it across the panel
+   so the two collections read as separate without a word of label. */
+.pdfr-library-shelf-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.2rem 0.35rem;
+  color: #7c8188;
+}
+
+.pdfr-library-shelf-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #ececee;
+}
+
 .pdfr-book {
   display: flex;
   flex-direction: column;

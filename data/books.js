@@ -26,6 +26,10 @@ export function bookUrl(file) {
  * entry here still appears in the library: its file name (minus .pdf) becomes
  * the title and its id. Give an ascii `id` to any book whose file name is
  * Hebrew — the id is what ends up in the shareable /rtl?book=… link.
+ *
+ * `kind: 'manuscript'` moves an entry to the כתבי יד shelf of the library. It
+ * describes the document, not where the file is stored: a manuscript small
+ * enough for books/ belongs on that shelf just as much as one in the release.
  */
 export const bookMeta = {
   // 'sefer-yetsira.pdf': { id: 'yetsira', title: 'ספר יצירה', author: '', year: '' },
@@ -52,17 +56,20 @@ export const releaseBooks = [
   {
     id: 'ibn-ezra-al-hatorah',
     file: 'ibn-ezra-al-hatorah.pdf',
-    title: 'אבן עזרא על התורה — כתב יד',
+    title: 'אבן עזרא על התורה',
     author: 'ר׳ אברהם אבן עזרא',
-    year: '',
+    // From the title page of the scan: Paris, BnF, copied 1284 (Ktiv / NLI).
+    year: '1284 · Ms. hébr. 176',
+    kind: 'manuscript',
     release: true
   },
   {
     id: 'sefer-hamispar-ktav-yad',
     file: 'sefer-hamispar.pdf',
-    title: 'ספר המספר — כתב יד',
+    title: 'ספר המספר',
     author: 'ר׳ אברהם אבן עזרא',
     year: '',
+    kind: 'manuscript',
     release: true
   }
 ]
