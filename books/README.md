@@ -27,6 +27,35 @@ NEXT_PUBLIC_BOOKS_BASE=/api/books/ yarn dev   # disque local
 NEXT_PUBLIC_BOOKS_BASE=https://raw.githubusercontent.com/viebel/sfr/main/books/ yarn dev
 ```
 
+## Trop gros pour git : la release `books-v1`
+
+Au-delà de ~100 MB, GitHub refuse le fichier — un manuscrit scanné dépasse vite.
+Ces livres-là ne sont pas dans le dépôt : ils sont attachés à une **release**,
+et déclarés dans `releaseBooks` de [`data/books.js`](../data/books.js).
+
+```bash
+# 1. compresser le scan (JPEG q55, ~0.7x — vérifié lisible sur ces manuscrits)
+gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET -dFastWebView=true \
+   -dPassThroughJPEGImages=false \
+   -dAutoFilterGrayImages=false -sGrayImageFilter=DCTEncode \
+   -dAutoFilterColorImages=false -sColorImageFilter=DCTEncode -dJPEGQ=55 \
+   -dDownsampleGrayImages=true -dGrayImageResolution=50 -dGrayImageDownsampleThreshold=1.0 \
+   -dDownsampleColorImages=true -dColorImageResolution=50 -dColorImageDownsampleThreshold=1.0 \
+   -o mon-livre.pdf "manuscripts/mon livre.pdf"
+
+# 2. l'attacher à la release
+gh release upload books-v1 mon-livre.pdf
+```
+
+Puis ajouter une entrée dans `releaseBooks` et pousser.
+
+⚠️ Un asset de release ne renvoie **aucun** en-tête CORS : le navigateur ne peut
+pas le lire directement. C'est `pages/api/book/[id].js` qui le relaie depuis
+notre propre origine (en transmettant les requêtes `Range`, pour que pdf.js
+n'ait pas à télécharger tout le livre avant d'afficher une page).
+
+Les scans originaux restent en local dans `manuscripts/` (git-ignoré).
+
 ## Limits to keep in mind
 
 - GitHub warns above **50 MB** per file and refuses anything above **100 MB**.

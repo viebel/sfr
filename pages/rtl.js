@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { bookUrl } from '../data/books'
+import { bookHref } from '../data/books'
 
 // pdf.js is loaded lazily, in the browser, and outside the bundler: webpackIgnore
 // keeps this a native dynamic import of the copy scripts/copy-pdf-worker.js puts
@@ -372,7 +372,7 @@ export default function RtlReader({ books = [] }) {
       params.delete('page')
       params.set('book', book.id)
       window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-      openSource({ url: bookUrl(book.file) }, book.title)
+      openSource({ url: bookHref(book) }, book.title)
     },
     [openSource]
   )
@@ -391,7 +391,7 @@ export default function RtlReader({ books = [] }) {
       if (book) {
         setBookId(book.id)
         setFileName(book.title)
-        openSource({ url: bookUrl(book.file) }, book.title)
+        openSource({ url: bookHref(book) }, book.title)
       } else {
         setStatus('error')
         setError('הספר לא נמצא בספרייה')
@@ -861,7 +861,7 @@ export default function RtlReader({ books = [] }) {
 export function getStaticProps() {
   const fs = require('fs')
   const path = require('path')
-  const { bookMeta } = require('../data/books')
+  const { bookMeta, releaseBooks } = require('../data/books')
 
   const root = path.join(process.cwd(), 'books')
 
@@ -886,6 +886,7 @@ export function getStaticProps() {
         year: meta.year ? String(meta.year) : ''
       }
     })
+    .concat(releaseBooks)
     .sort((a, b) => a.title.localeCompare(b.title, 'he'))
 
   return { props: { books } }
