@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { bookUrl } from '../data/books'
 
 // pdf.js is loaded lazily, in the browser, and outside the bundler: webpackIgnore
 // keeps this a native dynamic import of the copy scripts/copy-pdf-worker.js puts
@@ -55,6 +56,18 @@ const IconOpen = () => (
   <Icon>
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1" />
     <path d="M3.2 9h17.6l-1.9 8.6A2 2 0 0 1 17 19H7a2 2 0 0 1-1.9-1.4z" />
+  </Icon>
+)
+const IconLibrary = () => (
+  <Icon>
+    <path d="M4 4.5h3.5v15H4zM8.5 4.5H12v15H8.5z" />
+    <path d="m14.2 5.6 3.4-.9 3 11.6-3.4.9z" />
+    <path d="M4 19.5h16" />
+  </Icon>
+)
+const IconClose = () => (
+  <Icon>
+    <path d="M6 6l12 12M18 6L6 18" />
   </Icon>
 )
 // In RTL, "back" points right and "forward" points left.
@@ -269,7 +282,7 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
   )
 }
 
-export default function RtlReader() {
+export default function RtlReader({ books = [] }) {
   const [pdfDoc, setPdfDoc] = useState(null)
   const [numPages, setNumPages] = useState(0)
   const [page, setPage] = useState(1)
@@ -283,6 +296,8 @@ export default function RtlReader() {
   const [status, setStatus] = useState('idle') // idle | loading | ready | error
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [bookId, setBookId] = useState('')
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
@@ -338,21 +353,54 @@ export default function RtlReader() {
         return
       }
       const data = new Uint8Array(await file.arrayBuffer())
+      setBookId('')
       openSource({ data }, file.name)
     },
     [openSource]
   )
 
-  // Deep link: /rtl?url=...&page=... — read straight from the URL, since this is
-  // a static page and router.query is only populated after hydration settles.
+  // A book of the library is fetched from GitHub by URL; only its id travels in
+  // the address bar, so the link stays short and survives a move of the files.
+  const openBook = useCallback(
+    book => {
+      if (!book) return
+      setLibraryOpen(false)
+      setBookId(book.id)
+      setFileName(book.title)
+      const params = new URLSearchParams(window.location.search)
+      params.delete('url')
+      params.delete('page')
+      params.set('book', book.id)
+      window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+      openSource({ url: bookUrl(book.file) }, book.title)
+    },
+    [openSource]
+  )
+
+  // Deep link: /rtl?book=...&page=... or /rtl?url=...&page=... — read straight
+  // from the URL, since this is a static page and router.query is only
+  // populated after hydration settles.
   useEffect(() => {
     if (openTokenRef.current > 0) return
     const params = new URLSearchParams(window.location.search)
     const wanted = parseInt(params.get('page'), 10)
     if (Number.isFinite(wanted) && wanted > 0) pendingPageRef.current = wanted
+    const id = params.get('book')
+    if (id) {
+      const book = books.find(b => b.id === id)
+      if (book) {
+        setBookId(book.id)
+        setFileName(book.title)
+        openSource({ url: bookUrl(book.file) }, book.title)
+      } else {
+        setStatus('error')
+        setError('הספר לא נמצא בספרייה')
+      }
+      return
+    }
     const url = params.get('url')
     if (url) openSource({ url }, decodeURIComponent(url.split('/').pop() || 'PDF'))
-  }, [openSource])
+  }, [openSource, books])
 
   useEffect(() => () => docRef.current?.loadingTask?.destroy(), [])
 
@@ -528,6 +576,10 @@ export default function RtlReader() {
             <Link href="/" className="pdfr-btn" title="ס.פ.ר" aria-label="חזרה לס.פ.ר">
               <IconHome />
             </Link>
+            <nav className="src-subtabs">
+              <Link href="/rtl" className="src-subtab active" aria-current="page">קורא</Link>
+              <Link href="/mekorot" className="src-subtab">מקורות</Link>
+            </nav>
             <button
               type="button"
               className="pdfr-btn"
@@ -547,6 +599,16 @@ export default function RtlReader() {
                 e.target.value = ''
               }}
             />
+            <button
+              type="button"
+              className={`pdfr-btn${libraryOpen ? ' on' : ''}`}
+              onClick={() => setLibraryOpen(o => !o)}
+              title="ספרייה"
+              aria-label="ספרייה"
+              aria-expanded={libraryOpen}
+            >
+              <IconLibrary />
+            </button>
             {fileName && <span className="pdfr-filename">{fileName}</span>}
           </div>
 
@@ -708,19 +770,75 @@ export default function RtlReader() {
                   <div className="pdfr-empty-text">
                     גררו לכאן קובץ PDF, או פתחו קובץ בעזרת הכפתור
                   </div>
-                  <button
-                    type="button"
-                    className="pdfr-btn pdfr-btn-lg"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="פתיחת קובץ PDF"
-                    aria-label="פתיחת קובץ PDF"
-                  >
-                    <IconOpen />
-                  </button>
+                  <div className="pdfr-empty-actions">
+                    <button
+                      type="button"
+                      className="pdfr-btn pdfr-btn-lg"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="פתיחת קובץ PDF"
+                      aria-label="פתיחת קובץ PDF"
+                    >
+                      <IconOpen />
+                    </button>
+                    {books.length > 0 && (
+                      <button
+                        type="button"
+                        className="pdfr-btn pdfr-btn-lg"
+                        onClick={() => setLibraryOpen(true)}
+                        title="ספרייה"
+                        aria-label="ספרייה"
+                      >
+                        <IconLibrary />
+                      </button>
+                    )}
+                  </div>
                   {status === 'loading' && <div className="pdfr-empty-note">טוען…</div>}
                   {status === 'error' && <div className="pdfr-empty-error">{error}</div>}
                 </div>
               </div>
+            )}
+
+            {libraryOpen && (
+              <>
+                <div className="pdfr-library-veil" onClick={() => setLibraryOpen(false)} />
+                <div className="pdfr-library" role="dialog" aria-label="ספרייה">
+                  <div className="pdfr-library-head">
+                    <IconLibrary />
+                    <button
+                      type="button"
+                      className="pdfr-btn"
+                      onClick={() => setLibraryOpen(false)}
+                      title="סגירה"
+                      aria-label="סגירה"
+                    >
+                      <IconClose />
+                    </button>
+                  </div>
+                  <div className="pdfr-library-list">
+                    {books.map(book => (
+                      <button
+                        type="button"
+                        key={book.id}
+                        className={`pdfr-book${book.id === bookId ? ' on' : ''}`}
+                        onClick={() => openBook(book)}
+                        title={book.title}
+                      >
+                        <span className="pdfr-book-title">{book.title}</span>
+                        {(book.author || book.year) && (
+                          <span className="pdfr-book-meta">
+                            {[book.author, book.year].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {books.length === 0 && (
+                      <div className="pdfr-library-empty">
+                        הספרייה ריקה — הוסיפו קובצי PDF לתיקיית books שבמאגר
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
 
             {pdfDoc && status === 'error' && <div className="pdfr-toast">{error}</div>}
@@ -733,4 +851,42 @@ export default function RtlReader() {
       </div>
     </>
   )
+}
+
+/*
+ * The library is the books/ folder of the repo, read at build time: a PDF
+ * dropped there needs no code change to appear. Only names travel to the
+ * client — the files themselves are fetched from GitHub (see data/books.js).
+ */
+export function getStaticProps() {
+  const fs = require('fs')
+  const path = require('path')
+  const { bookMeta } = require('../data/books')
+
+  const root = path.join(process.cwd(), 'books')
+
+  const walk = dir =>
+    fs.existsSync(dir)
+      ? fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+          const full = path.join(dir, entry.name)
+          if (entry.isDirectory()) return walk(full)
+          return /\.pdf$/i.test(entry.name) ? [path.relative(root, full)] : []
+        })
+      : []
+
+  const books = walk(root)
+    .map(file => {
+      const meta = bookMeta[file] || {}
+      const name = file.replace(/\.pdf$/i, '')
+      return {
+        id: meta.id || name,
+        file,
+        title: meta.title || path.basename(name),
+        author: meta.author || '',
+        year: meta.year ? String(meta.year) : ''
+      }
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, 'he'))
+
+  return { props: { books } }
 }
