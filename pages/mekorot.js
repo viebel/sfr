@@ -170,7 +170,7 @@ export default function Mekorot() {
               </svg>
             </Link>
             <nav className="src-subtabs">
-              <Link href="/rtl" className="src-subtab">קורא</Link>
+              <Link href="/library" className="src-subtab">ספר</Link>
               <Link href="/mekorot" className="src-subtab active" aria-current="page">מקורות</Link>
             </nav>
           </div>

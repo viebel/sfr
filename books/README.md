@@ -1,14 +1,14 @@
 # books/
 
-הספרייה של `/rtl` — קובצי PDF המוגשים ישירות מ‑GitHub.
+הספרייה של `/library` — קובצי PDF המוגשים ישירות מ‑GitHub.
 
-The PDF library shown in the reader at `/rtl`.
+The PDF library shown in the reader at `/library`.
 
 ## Adding a book
 
 1. Drop the PDF in this folder (sub-folders are allowed).
 2. Optionally add an entry in [`data/books.js`](../data/books.js) to set a Hebrew
-   title, an author, a year, and a stable ascii `id` for the `/rtl?book=…` link.
+   title, an author, a year, and a stable ascii `id` for the `/library?book=…` link.
 3. Commit and push. The list is built from this folder at build time, so the new
    book appears on the next deploy.
 

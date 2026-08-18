@@ -854,7 +854,7 @@ export default function Home() {
             ספור
           </button>
           {/* Not a tab of this page but a route of its own — the PDF reader */}
-          <Link href="/rtl" className="tab tab-link">
+          <Link href="/library" className="tab tab-link">
             ספר
           </Link>
         </div>

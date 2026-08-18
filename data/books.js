@@ -25,7 +25,7 @@ export function bookUrl(file) {
  * Optional metadata, keyed by the file's path inside books/. A PDF with no
  * entry here still appears in the library: its file name (minus .pdf) becomes
  * the title and its id. Give an ascii `id` to any book whose file name is
- * Hebrew — the id is what ends up in the shareable /rtl?book=… link.
+ * Hebrew — the id is what ends up in the shareable /library?book=… link.
  *
  * `kind: 'manuscript'` moves an entry to the כתבי יד shelf of the library. It
  * describes the document, not where the file is stored: a manuscript small

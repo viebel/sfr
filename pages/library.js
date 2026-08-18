@@ -1,7 +1,8 @@
 import Head from 'next/head'
-import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import AppNav from '../components/AppNav'
 import { bookHref } from '../data/books'
+import { lastPageOf, readHistory, recordRead } from '../utils/readingHistory'
 
 // pdf.js is loaded lazily, in the browser, and outside the bundler: webpackIgnore
 // keeps this a native dynamic import of the copy scripts/copy-pdf-worker.js puts
@@ -52,10 +53,13 @@ function Icon({ children, size = 18 }) {
   )
 }
 
+// Not a folder — a folder says "somewhere", and users read it as a place in the
+// app. An arrow rising out of a tray says "a file of mine, from this machine".
 const IconOpen = () => (
   <Icon>
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1" />
-    <path d="M3.2 9h17.6l-1.9 8.6A2 2 0 0 1 17 19H7a2 2 0 0 1-1.9-1.4z" />
+    <path d="M12 15V3.8" />
+    <path d="M7.8 8 12 3.8 16.2 8" />
+    <path d="M4.5 14.5v4a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4" />
   </Icon>
 )
 const IconLibrary = () => (
@@ -82,29 +86,36 @@ const IconScroll = ({ size = 20 }) => (
     <path d="M8.6 8.5h6.8M8.6 12h6.8M8.6 15.5h6.8" />
   </Icon>
 )
-const IconClose = () => (
-  <Icon>
+const IconClock = ({ size = 20 }) => (
+  <Icon size={size}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 6.8V12l3.4 2.2" />
+  </Icon>
+)
+const IconClose = ({ size = 18 }) => (
+  <Icon size={size}>
     <path d="M6 6l12 12M18 6L6 18" />
   </Icon>
 )
-// In RTL, "back" points right and "forward" points left.
-const IconBack = () => (
+// Chevrons name a side of the screen, not a side of the book: which one means
+// "further into the book" depends on the direction the book is read in.
+const IconChevronRight = () => (
   <Icon>
     <path d="M9 5l7 7-7 7" />
   </Icon>
 )
-const IconForward = () => (
+const IconChevronLeft = () => (
   <Icon>
     <path d="M15 5l-7 7 7 7" />
   </Icon>
 )
-const IconFirst = () => (
+const IconEndRight = () => (
   <Icon>
     <path d="M6 5l7 7-7 7" />
     <path d="M13 5l5 7-5 7" />
   </Icon>
 )
-const IconLast = () => (
+const IconEndLeft = () => (
   <Icon>
     <path d="M18 5l-7 7 7 7" />
     <path d="M11 5l-5 7 5 7" />
@@ -161,12 +172,6 @@ const IconExpand = () => (
     <path d="M9 3.5H5.5a2 2 0 0 0-2 2V9M15 3.5h3.5a2 2 0 0 1 2 2V9M9 20.5H5.5a2 2 0 0 1-2-2V15M15 20.5h3.5a2 2 0 0 0 2-2V15" />
   </Icon>
 )
-const IconHome = () => (
-  <Icon>
-    <path d="M3.5 11 12 3.5l8.5 7.5" />
-    <path d="M5.8 9.9V20h12.4V9.9" />
-  </Icon>
-)
 const IconDoc = ({ size = 44 }) => (
   <Icon size={size}>
     <path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z" />
@@ -174,8 +179,15 @@ const IconDoc = ({ size = 44 }) => (
     <path d="M8.5 13h7M8.5 16.5h4.5" />
   </Icon>
 )
+// Lines of text with the arrow of the direction they are read in.
+const IconDirection = ({ rtl }) => (
+  <Icon>
+    <path d="M4.5 6h15M4.5 10.5h15M4.5 15h9" />
+    {rtl ? <path d="M9 19.5 5.5 17 9 14.5" /> : <path d="m15 19.5 3.5-2.5-3.5-2.5" />}
+  </Icon>
+)
 
-// A spread groups pages so that, in RTL, the lower page number sits on the right.
+// A spread groups pages so that the lower page number sits on the reading side.
 function groupStart(page, spread, coverAlone) {
   if (!spread) return page
   if (coverAlone) return page <= 1 ? 1 : page % 2 === 0 ? page : page - 1
@@ -187,6 +199,13 @@ function groupPages(page, spread, coverAlone, numPages) {
   if (!spread) return [start]
   if (coverAlone && start === 1) return [1]
   return [start, start + 1].filter(n => n >= 1 && n <= numPages)
+}
+
+// A Hebrew or Arabic title means a book bound on the right; anything else opens
+// the way a Latin book does. An explicit `dir` on the entry always wins.
+function guessDir(title, declared) {
+  if (declared === 'rtl' || declared === 'ltr') return declared
+  return /[֐-׿؀-ۿ]/.test(String(title || '')) ? 'rtl' : 'ltr'
 }
 
 function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation }) {
@@ -299,136 +318,228 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
   )
 }
 
-export default function RtlReader({ books = [] }) {
-  const [pdfDoc, setPdfDoc] = useState(null)
-  const [numPages, setNumPages] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageDraft, setPageDraft] = useState('1')
-  const [spread, setSpread] = useState(true)
-  const [coverAlone, setCoverAlone] = useState(true)
-  const [fitMode, setFitMode] = useState('page')
-  const [zoomIndex, setZoomIndex] = useState(zoomSteps.indexOf(1))
-  const [rotation, setRotation] = useState(0)
-  const [fileName, setFileName] = useState('')
-  const [status, setStatus] = useState('idle') // idle | loading | ready | error
-  const [error, setError] = useState('')
+// Everything a tab holds. Each open document keeps its own place, zoom and
+// binding, so switching between two books never disturbs either of them.
+function newDoc({ key, title, bookId, dir, page }) {
+  return {
+    key,
+    title,
+    bookId: bookId || '',
+    dir,
+    status: 'loading', // loading | ready | error
+    error: '',
+    progress: 0,
+    pdfDoc: null,
+    numPages: 0,
+    page: page || 1,
+    pageDraft: String(page || 1),
+    spread: true,
+    coverAlone: true,
+    fitMode: 'page',
+    zoomIndex: zoomSteps.indexOf(1),
+    rotation: 0
+  }
+}
+
+export default function Library({ books = [] }) {
+  const [docs, setDocs] = useState([])
+  const [activeKey, setActiveKey] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
-  const [bookId, setBookId] = useState('')
+  const [history, setHistory] = useState([])
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
   const fileInputRef = useRef(null)
-  const docRef = useRef(null)
-  const pendingPageRef = useRef(null)
-  const openTokenRef = useRef(0)
+  const docsRef = useRef(docs)
+  const keySeqRef = useRef(0)
+  const tasksRef = useRef(new Map())
+  const closedRef = useRef(new Set())
+  const bootedRef = useRef(false)
   const [box, setBox] = useState({ width: 0, height: 0 })
 
-  const zoom = zoomSteps[zoomIndex]
-  const pages = pdfDoc ? groupPages(page, spread, coverAlone, numPages) : []
+  useEffect(() => {
+    docsRef.current = docs
+  }, [docs])
+
+  const doc = docs.find(d => d.key === activeKey) || null
+  const pdfDoc = doc?.pdfDoc || null
+  const numPages = doc?.numPages || 0
+  const dir = doc?.dir || 'rtl'
+  const rtl = dir === 'rtl'
+  const zoom = zoomSteps[doc?.zoomIndex ?? zoomSteps.indexOf(1)]
+  const pages = pdfDoc ? groupPages(doc.page, doc.spread, doc.coverAlone, numPages) : []
+
+  const patchDoc = useCallback((key, patch) => {
+    setDocs(ds => ds.map(d => (d.key === key ? { ...d, ...patch } : d)))
+  }, [])
+
+  const patchActive = useCallback(
+    patch => {
+      const key = docsRef.current.find(d => d.key === activeKey)?.key
+      if (key) patchDoc(key, patch)
+    },
+    [activeKey, patchDoc]
+  )
 
   // --- document loading -----------------------------------------------------
 
-  const openSource = useCallback(async (source, name) => {
-    // Opening a second file while the first is still parsing must not leave the
-    // slower one to win, so only the newest token is allowed to install a doc.
-    const token = ++openTokenRef.current
-    setStatus('loading')
-    setError('')
-    try {
-      const pdfjs = await loadPdfjs()
-      const task = pdfjs.getDocument({ ...pdfjsOptions, ...source })
-      const doc = await task.promise
-      if (token !== openTokenRef.current) {
-        task.destroy()
-        return
+  const openDoc = useCallback(
+    async ({ source, title, bookId = '', dir: wanted, page }) => {
+      // A book already open is brought forward rather than loaded a second time.
+      if (bookId) {
+        const open = docsRef.current.find(d => d.bookId === bookId)
+        if (open) {
+          setActiveKey(open.key)
+          if (page) patchDoc(open.key, { page, pageDraft: String(page) })
+          setLibraryOpen(false)
+          return
+        }
       }
-      docRef.current?.loadingTask?.destroy()
-      docRef.current = doc
-      setPdfDoc(doc)
-      setNumPages(doc.numPages)
-      const wanted = pendingPageRef.current
-      pendingPageRef.current = null
-      const start = Math.min(Math.max(wanted || 1, 1), doc.numPages)
-      setPage(start)
-      setPageDraft(String(start))
-      setFileName(name)
-      setStatus('ready')
-    } catch (e) {
-      if (token !== openTokenRef.current) return
-      setStatus('error')
-      setError(e?.message || 'לא ניתן לפתוח את הקובץ')
-    }
-  }, [])
+
+      // Where to land: an explicit page wins, then wherever this book was left.
+      const start = page || (bookId ? lastPageOf(bookId) : 0) || 1
+      const key = `doc${++keySeqRef.current}`
+      setDocs(ds => [
+        ...ds,
+        newDoc({ key, title, bookId, dir: guessDir(title, wanted), page: start })
+      ])
+      setActiveKey(key)
+      setLibraryOpen(false)
+
+      try {
+        const pdfjs = await loadPdfjs()
+        const task = pdfjs.getDocument({ ...pdfjsOptions, ...source })
+        tasksRef.current.set(key, task)
+        // 40 MB of manuscript takes a while to arrive: report how far it got.
+        task.onProgress = ({ loaded, total }) => {
+          if (closedRef.current.has(key)) return
+          patchDoc(key, { progress: total ? Math.min(loaded / total, 1) : 0 })
+        }
+        const pdf = await task.promise
+        if (closedRef.current.has(key)) {
+          task.destroy()
+          return
+        }
+        const landing = Math.min(Math.max(start, 1), pdf.numPages)
+        patchDoc(key, {
+          pdfDoc: pdf,
+          numPages: pdf.numPages,
+          status: 'ready',
+          page: landing,
+          pageDraft: String(landing)
+        })
+      } catch (e) {
+        if (closedRef.current.has(key)) return
+        patchDoc(key, { status: 'error', error: e?.message || 'לא ניתן לפתוח את הקובץ' })
+      }
+    },
+    [patchDoc]
+  )
 
   const openFile = useCallback(
     async file => {
       if (!file) return
       if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
-        setStatus('error')
-        setError('הקובץ אינו PDF')
         return
       }
       const data = new Uint8Array(await file.arrayBuffer())
-      setBookId('')
-      openSource({ data }, file.name)
+      openDoc({ source: { data }, title: file.name })
     },
-    [openSource]
+    [openDoc]
   )
 
-  // A book of the library is fetched from GitHub by URL; only its id travels in
-  // the address bar, so the link stays short and survives a move of the files.
   const openBook = useCallback(
-    book => {
-      if (!book) return
-      setLibraryOpen(false)
-      setBookId(book.id)
-      setFileName(book.title)
-      const params = new URLSearchParams(window.location.search)
-      params.delete('url')
-      params.delete('page')
-      params.set('book', book.id)
-      window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-      openSource({ url: bookHref(book) }, book.title)
+    (book, page) => {
+      openDoc({
+        source: { url: bookHref(book) },
+        title: book.title,
+        bookId: book.id,
+        dir: book.dir,
+        page
+      })
     },
-    [openSource]
+    [openDoc]
   )
 
-  // Deep link: /rtl?book=...&page=... or /rtl?url=...&page=... — read straight
-  // from the URL, since this is a static page and router.query is only
-  // populated after hydration settles.
+  const closeDoc = useCallback(key => {
+    closedRef.current.add(key)
+    const task = tasksRef.current.get(key)
+    tasksRef.current.delete(key)
+    const current = docsRef.current
+    const index = current.findIndex(d => d.key === key)
+    const rest = current.filter(d => d.key !== key)
+    setDocs(rest)
+    setActiveKey(active =>
+      active === key ? rest[Math.min(index, rest.length - 1)]?.key ?? null : active
+    )
+    try {
+      current[index]?.pdfDoc?.loadingTask?.destroy()
+      task?.destroy()
+    } catch {
+      /* already gone */
+    }
+  }, [])
+
+  // Deep link: /library?book=…&page=… or ?url=… — read straight from the URL,
+  // since this is a static page and router.query is only populated after
+  // hydration settles.
   useEffect(() => {
-    if (openTokenRef.current > 0) return
+    if (bootedRef.current) return
+    bootedRef.current = true
+    setHistory(readHistory())
     const params = new URLSearchParams(window.location.search)
     const wanted = parseInt(params.get('page'), 10)
-    if (Number.isFinite(wanted) && wanted > 0) pendingPageRef.current = wanted
+    const page = Number.isFinite(wanted) && wanted > 0 ? wanted : undefined
     const id = params.get('book')
     if (id) {
       const book = books.find(b => b.id === id)
-      if (book) {
-        setBookId(book.id)
-        setFileName(book.title)
-        openSource({ url: bookHref(book) }, book.title)
-      } else {
-        setStatus('error')
-        setError('הספר לא נמצא בספרייה')
-      }
+      if (book) openBook(book, page)
       return
     }
     const url = params.get('url')
-    if (url) openSource({ url }, decodeURIComponent(url.split('/').pop() || 'PDF'))
-  }, [openSource, books])
+    if (url) {
+      const name = decodeURIComponent(url.split('/').pop() || 'PDF')
+      openDoc({ source: { url }, title: name, page })
+    }
+  }, [books, openBook, openDoc])
 
-  useEffect(() => () => docRef.current?.loadingTask?.destroy(), [])
-
-  // Keep ?page= in sync so a reload (or a shared link) resumes where you were.
+  // Keep the address bar on the book being read, so a reload — or a link handed
+  // to someone else — comes back to this page of this book.
   useEffect(() => {
-    if (!pdfDoc) return
+    if (!doc || doc.status !== 'ready') return
     const params = new URLSearchParams(window.location.search)
-    if (params.get('page') === String(page)) return
-    params.set('page', String(page))
-    window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-  }, [page, pdfDoc])
+    if (doc.bookId) params.set('book', doc.bookId)
+    else params.delete('book')
+    params.set('page', String(doc.page))
+    const next = `${window.location.pathname}?${params}`
+    if (next !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, '', next)
+    }
+  }, [doc])
+
+  // The reading memory, written as you turn pages.
+  useEffect(() => {
+    if (!doc || doc.status !== 'ready' || !doc.bookId) return
+    const timer = setTimeout(() => {
+      recordRead({ id: doc.bookId, title: doc.title, page: doc.page, numPages: doc.numPages })
+      setHistory(readHistory())
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [doc])
+
+  useEffect(
+    () => () => {
+      docsRef.current.forEach(d => {
+        try {
+          d.pdfDoc?.loadingTask?.destroy()
+        } catch {
+          /* leaving the page anyway */
+        }
+      })
+    },
+    []
+  )
 
   // --- navigation -----------------------------------------------------------
 
@@ -436,29 +547,36 @@ export default function RtlReader({ books = [] }) {
     n => {
       if (!numPages) return
       const clamped = Math.min(Math.max(n, 1), numPages)
-      setPage(clamped)
-      setPageDraft(String(clamped))
+      patchActive({ page: clamped, pageDraft: String(clamped) })
     },
-    [numPages]
+    [numPages, patchActive]
   )
 
   const goForward = useCallback(() => {
-    const shown = groupPages(page, spread, coverAlone, numPages)
+    if (!doc) return
+    const shown = groupPages(doc.page, doc.spread, doc.coverAlone, numPages)
     const next = shown[shown.length - 1] + 1
-    if (next <= numPages) goTo(groupStart(next, spread, coverAlone))
-  }, [page, spread, coverAlone, numPages, goTo])
+    if (next <= numPages) goTo(groupStart(next, doc.spread, doc.coverAlone))
+  }, [doc, numPages, goTo])
 
   const goBack = useCallback(() => {
-    const start = groupStart(page, spread, coverAlone)
-    if (start > 1) goTo(groupStart(start - 1, spread, coverAlone))
-  }, [page, spread, coverAlone, goTo])
+    if (!doc) return
+    const start = groupStart(doc.page, doc.spread, doc.coverAlone)
+    if (start > 1) goTo(groupStart(start - 1, doc.spread, doc.coverAlone))
+  }, [doc, goTo])
 
-  const atStart = pages.length > 0 && groupStart(page, spread, coverAlone) <= 1
+  const atStart = pages.length > 0 && groupStart(doc.page, doc.spread, doc.coverAlone) <= 1
   const atEnd = pages.length > 0 && pages[pages.length - 1] >= numPages
 
-  const zoomBy = useCallback(delta => {
-    setZoomIndex(i => Math.min(Math.max(i + delta, 0), zoomSteps.length - 1))
-  }, [])
+  const zoomBy = useCallback(
+    delta => {
+      if (!doc) return
+      patchActive({
+        zoomIndex: Math.min(Math.max(doc.zoomIndex + delta, 0), zoomSteps.length - 1)
+      })
+    },
+    [doc, patchActive]
+  )
 
   // --- keyboard -------------------------------------------------------------
 
@@ -468,14 +586,20 @@ export default function RtlReader({ books = [] }) {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       switch (e.key) {
-        // RTL: moving left goes forward in the book, moving right goes back.
+        // The arrow that walks into the book is the one pointing at the spine.
         case 'ArrowLeft':
+          e.preventDefault()
+          rtl ? goForward() : goBack()
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          rtl ? goBack() : goForward()
+          break
         case 'PageDown':
         case ' ':
           e.preventDefault()
           goForward()
           break
-        case 'ArrowRight':
         case 'PageUp':
           e.preventDefault()
           goBack()
@@ -499,14 +623,14 @@ export default function RtlReader({ books = [] }) {
           break
         case '0':
           e.preventDefault()
-          setZoomIndex(zoomSteps.indexOf(1))
+          patchActive({ zoomIndex: zoomSteps.indexOf(1) })
           break
         default:
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goForward, goBack, goTo, zoomBy, numPages])
+  }, [goForward, goBack, goTo, zoomBy, numPages, rtl, patchActive])
 
   // --- available room for the pages ----------------------------------------
 
@@ -529,7 +653,7 @@ export default function RtlReader({ books = [] }) {
       if (frame) cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [status])
+  }, [])
 
   // The two pages of a spread sit flush against each other, as in a bound book,
   // so there is no gap to subtract — only the stage padding (see .pdfr-stage).
@@ -554,28 +678,48 @@ export default function RtlReader({ books = [] }) {
     else el.requestFullscreen?.()
   }
 
-  // Printed books and manuscripts are two shelves of the same library — the
-  // reader tells them apart at a glance, and a title held by both (ספר המספר)
-  // stops being ambiguous.
-  const shelves = [
-    { kind: 'book', label: 'ספרים', icon: <IconBook /> },
-    { kind: 'manuscript', label: 'כתבי יד', icon: <IconScroll /> }
-  ]
-    .map(shelf => ({ ...shelf, items: books.filter(b => (b.kind || 'book') === shelf.kind) }))
-    .filter(shelf => shelf.items.length > 0)
+  // Printed books and manuscripts are two shelves of the same library, and what
+  // you were reading is a third one — the one you reach for most.
+  const shelves = useMemo(() => {
+    const recent = history
+      .map(entry => {
+        const book = books.find(b => b.id === entry.id)
+        return book ? { ...book, resumePage: entry.page } : null
+      })
+      .filter(Boolean)
+      .slice(0, 4)
+
+    return [
+      { kind: 'recent', label: 'אחרונים', icon: <IconClock />, items: recent },
+      {
+        kind: 'book',
+        label: 'ספרים',
+        icon: <IconBook />,
+        items: books.filter(b => (b.kind || 'book') === 'book')
+      },
+      {
+        kind: 'manuscript',
+        label: 'כתבי יד',
+        icon: <IconScroll />,
+        items: books.filter(b => b.kind === 'manuscript')
+      }
+    ].filter(shelf => shelf.items.length > 0)
+  }, [books, history])
 
   const submitPage = e => {
     e.preventDefault()
-    const n = parseInt(pageDraft, 10)
+    const n = parseInt(doc?.pageDraft, 10)
     if (Number.isFinite(n)) goTo(n)
-    else setPageDraft(String(page))
+    else patchActive({ pageDraft: String(doc?.page ?? 1) })
   }
+
+  const loadingPct = doc && doc.status === 'loading' ? Math.round(doc.progress * 100) : 0
 
   return (
     <>
       <Head>
-        <title>ס.פ.ר — קורא PDF מימין לשמאל</title>
-        <meta name="description" content="קריאת קבצי PDF בכיוון ימין לשמאל" />
+        <title>ס.פ.ר — ספרייה</title>
+        <meta name="description" content="ספרייה וקורא PDF, מימין לשמאל ומשמאל לימין" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -598,15 +742,22 @@ export default function RtlReader({ books = [] }) {
         }}
         onDrop={onDrop}
       >
+        <div className="pdfr-appnav">
+          <AppNav current="library" compact />
+        </div>
+
         <div className="pdfr-toolbar">
           <div className="pdfr-toolbar-group">
-            <Link href="/" className="pdfr-btn" title="ס.פ.ר" aria-label="חזרה לס.פ.ר">
-              <IconHome />
-            </Link>
-            <nav className="src-subtabs">
-              <Link href="/rtl" className="src-subtab active" aria-current="page">קורא</Link>
-              <Link href="/mekorot" className="src-subtab">מקורות</Link>
-            </nav>
+            <button
+              type="button"
+              className={`pdfr-btn${libraryOpen ? ' on' : ''}`}
+              onClick={() => setLibraryOpen(o => !o)}
+              title="ספרייה"
+              aria-label="ספרייה"
+              aria-expanded={libraryOpen}
+            >
+              <IconLibrary />
+            </button>
             <button
               type="button"
               className="pdfr-btn"
@@ -628,18 +779,19 @@ export default function RtlReader({ books = [] }) {
             />
             <button
               type="button"
-              className={`pdfr-btn${libraryOpen ? ' on' : ''}`}
-              onClick={() => setLibraryOpen(o => !o)}
-              title="ספרייה"
-              aria-label="ספרייה"
-              aria-expanded={libraryOpen}
+              className="pdfr-btn"
+              onClick={() => patchActive({ dir: rtl ? 'ltr' : 'rtl' })}
+              disabled={!doc}
+              title={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
+              aria-label={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
             >
-              <IconLibrary />
+              <IconDirection rtl={rtl} />
             </button>
-            {fileName && <span className="pdfr-filename">{fileName}</span>}
           </div>
 
-          <div className="pdfr-toolbar-group">
+          {/* The chevrons keep the book's own direction, so "further in" is
+              always the button on the side the reader is heading towards. */}
+          <div className="pdfr-toolbar-group" style={{ direction: dir }}>
             <button
               type="button"
               className="pdfr-btn"
@@ -648,7 +800,7 @@ export default function RtlReader({ books = [] }) {
               title="לעמוד הראשון"
               aria-label="לעמוד הראשון"
             >
-              <IconFirst />
+              {rtl ? <IconEndRight /> : <IconEndLeft />}
             </button>
             <button
               type="button"
@@ -658,16 +810,16 @@ export default function RtlReader({ books = [] }) {
               title="אחורה"
               aria-label="אחורה"
             >
-              <IconBack />
+              {rtl ? <IconChevronRight /> : <IconChevronLeft />}
             </button>
             <form className="pdfr-pagebox" onSubmit={submitPage}>
               <input
                 type="text"
                 inputMode="numeric"
                 className="pdfr-page-input"
-                value={pageDraft}
+                value={doc?.pageDraft ?? ''}
                 disabled={!pdfDoc}
-                onChange={e => setPageDraft(e.target.value.replace(/[^0-9]/g, ''))}
+                onChange={e => patchActive({ pageDraft: e.target.value.replace(/[^0-9]/g, '') })}
                 onBlur={submitPage}
                 aria-label="מספר עמוד"
               />
@@ -681,7 +833,7 @@ export default function RtlReader({ books = [] }) {
               title="קדימה"
               aria-label="קדימה"
             >
-              <IconForward />
+              {rtl ? <IconChevronLeft /> : <IconChevronRight />}
             </button>
             <button
               type="button"
@@ -691,7 +843,7 @@ export default function RtlReader({ books = [] }) {
               title="לעמוד האחרון"
               aria-label="לעמוד האחרון"
             >
-              <IconLast />
+              {rtl ? <IconEndLeft /> : <IconEndRight />}
             </button>
           </div>
 
@@ -700,7 +852,7 @@ export default function RtlReader({ books = [] }) {
               type="button"
               className="pdfr-btn"
               onClick={() => zoomBy(-1)}
-              disabled={zoomIndex === 0}
+              disabled={!doc || doc.zoomIndex === 0}
               title="הקטנה"
               aria-label="הקטנה"
             >
@@ -711,7 +863,7 @@ export default function RtlReader({ books = [] }) {
               type="button"
               className="pdfr-btn"
               onClick={() => zoomBy(1)}
-              disabled={zoomIndex === zoomSteps.length - 1}
+              disabled={!doc || doc.zoomIndex === zoomSteps.length - 1}
               title="הגדלה"
               aria-label="הגדלה"
             >
@@ -719,32 +871,34 @@ export default function RtlReader({ books = [] }) {
             </button>
             <button
               type="button"
-              className={`pdfr-btn${fitMode === 'width' ? ' on' : ''}`}
-              onClick={() => setFitMode(m => (m === 'page' ? 'width' : 'page'))}
-              title={fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
-              aria-label={fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
-              aria-pressed={fitMode === 'width'}
+              className={`pdfr-btn${doc?.fitMode === 'width' ? ' on' : ''}`}
+              onClick={() => patchActive({ fitMode: doc?.fitMode === 'page' ? 'width' : 'page' })}
+              disabled={!doc}
+              title={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
+              aria-label={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
+              aria-pressed={doc?.fitMode === 'width'}
             >
-              {fitMode === 'page' ? <IconFitWidth /> : <IconFitPage />}
+              {doc?.fitMode === 'page' ? <IconFitWidth /> : <IconFitPage />}
             </button>
             <button
               type="button"
-              className={`pdfr-btn${spread ? ' on' : ''}`}
-              onClick={() => setSpread(s => !s)}
-              title={spread ? 'עמוד יחיד' : 'כפולת עמודים'}
-              aria-label={spread ? 'עמוד יחיד' : 'כפולת עמודים'}
-              aria-pressed={spread}
+              className={`pdfr-btn${doc?.spread ? ' on' : ''}`}
+              onClick={() => patchActive({ spread: !doc?.spread })}
+              disabled={!doc}
+              title={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
+              aria-label={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
+              aria-pressed={!!doc?.spread}
             >
-              {spread ? <IconSingle /> : <IconSpread />}
+              {doc?.spread ? <IconSingle /> : <IconSpread />}
             </button>
-            {spread && (
+            {doc?.spread && (
               <button
                 type="button"
-                className={`pdfr-btn${coverAlone ? ' on' : ''}`}
-                onClick={() => setCoverAlone(c => !c)}
+                className={`pdfr-btn${doc.coverAlone ? ' on' : ''}`}
+                onClick={() => patchActive({ coverAlone: !doc.coverAlone })}
                 title="הזזת הצמדת העמודים"
                 aria-label="הזזת הצמדת העמודים"
-                aria-pressed={coverAlone}
+                aria-pressed={doc.coverAlone}
               >
                 <IconShift />
               </button>
@@ -752,7 +906,8 @@ export default function RtlReader({ books = [] }) {
             <button
               type="button"
               className="pdfr-btn"
-              onClick={() => setRotation(r => (r + 90) % 360)}
+              onClick={() => patchActive({ rotation: ((doc?.rotation || 0) + 90) % 360 })}
+              disabled={!doc}
               title="סיבוב"
               aria-label="סיבוב"
             >
@@ -770,43 +925,63 @@ export default function RtlReader({ books = [] }) {
           </div>
         </div>
 
+        {docs.length > 0 && (
+          <div className="pdfr-tabs" role="tablist" aria-label="ספרים פתוחים">
+            {docs.map(d => (
+              <div key={d.key} className={`pdfr-tab${d.key === activeKey ? ' active' : ''}`}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={d.key === activeKey}
+                  className="pdfr-tab-label"
+                  onClick={() => setActiveKey(d.key)}
+                  title={d.title}
+                >
+                  {d.status === 'loading' && <span className="pdfr-tab-spin" aria-hidden="true" />}
+                  <span className="pdfr-tab-title">{d.title}</span>
+                </button>
+                <button
+                  type="button"
+                  className="pdfr-tab-close"
+                  onClick={() => closeDoc(d.key)}
+                  title="סגירה"
+                  aria-label={`סגירת ${d.title}`}
+                >
+                  <IconClose size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="pdfr-stage-outer" ref={stageRef}>
           <div className="pdfr-stage">
             {pdfDoc && box.width > 0 && (
-              <div className="pdfr-spread">
+              <div className="pdfr-spread" style={{ direction: dir }}>
                 {pages.map(n => (
                   <PdfPageView
-                    key={`${n}-${rotation}`}
+                    key={`${doc.key}-${n}-${doc.rotation}`}
                     pdfDoc={pdfDoc}
                     pageNumber={n}
                     boxWidth={boxWidth}
                     boxHeight={boxHeight}
-                    fitMode={fitMode}
+                    fitMode={doc.fitMode}
                     zoom={zoom}
-                    rotation={rotation}
+                    rotation={doc.rotation}
                   />
                 ))}
               </div>
             )}
 
-            {!pdfDoc && (
+            {!doc && (
               <div className="pdfr-empty">
                 <div className="pdfr-empty-card">
                   <IconDoc />
-                  <div className="pdfr-empty-title">קריאת PDF מימין לשמאל</div>
+                  <div className="pdfr-empty-title">ספרייה</div>
                   <div className="pdfr-empty-text">
-                    גררו לכאן קובץ PDF, או פתחו קובץ בעזרת הכפתור
+                    בחרו ספר מהספרייה, גררו לכאן קובץ PDF, או פתחו קובץ בעזרת הכפתור
                   </div>
                   <div className="pdfr-empty-actions">
-                    <button
-                      type="button"
-                      className="pdfr-btn pdfr-btn-lg"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="פתיחת קובץ PDF"
-                      aria-label="פתיחת קובץ PDF"
-                    >
-                      <IconOpen />
-                    </button>
                     {books.length > 0 && (
                       <button
                         type="button"
@@ -818,12 +993,29 @@ export default function RtlReader({ books = [] }) {
                         <IconLibrary />
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="pdfr-btn pdfr-btn-lg"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="פתיחת קובץ PDF"
+                      aria-label="פתיחת קובץ PDF"
+                    >
+                      <IconOpen />
+                    </button>
                   </div>
-                  {status === 'loading' && <div className="pdfr-empty-note">טוען…</div>}
-                  {status === 'error' && <div className="pdfr-empty-error">{error}</div>}
                 </div>
               </div>
             )}
+
+            {doc?.status === 'loading' && (
+              <div className="pdfr-loading" role="status" aria-live="polite">
+                <span className="pdfr-spinner" aria-hidden="true" />
+                <span className="pdfr-loading-title">{doc.title}</span>
+                {loadingPct > 0 && <span className="pdfr-loading-pct">{loadingPct}%</span>}
+              </div>
+            )}
+
+            {doc?.status === 'error' && <div className="pdfr-toast">{doc.error}</div>}
 
             {libraryOpen && (
               <>
@@ -856,17 +1048,18 @@ export default function RtlReader({ books = [] }) {
                         {shelf.items.map(book => (
                           <button
                             type="button"
-                            key={book.id}
-                            className={`pdfr-book${book.id === bookId ? ' on' : ''}`}
-                            onClick={() => openBook(book)}
+                            key={`${shelf.kind}-${book.id}`}
+                            className={`pdfr-book${book.id === doc?.bookId ? ' on' : ''}`}
+                            onClick={() => openBook(book, book.resumePage)}
                             title={book.title}
                           >
                             <span className="pdfr-book-title">{book.title}</span>
-                            {(book.author || book.year) && (
-                              <span className="pdfr-book-meta">
-                                {[book.author, book.year].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
+                            <span className="pdfr-book-meta">
+                              {[book.author, book.year].filter(Boolean).join(' · ')}
+                              {book.resumePage ? (
+                                <span className="pdfr-book-page">עמוד {book.resumePage}</span>
+                              ) : null}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -880,14 +1073,10 @@ export default function RtlReader({ books = [] }) {
                 </div>
               </>
             )}
-
-            {pdfDoc && status === 'error' && <div className="pdfr-toast">{error}</div>}
           </div>
         </div>
 
-        <div className="pdfr-hint">
-          ← קדימה · → אחורה · +/− זום
-        </div>
+        <div className="pdfr-hint">{rtl ? '← קדימה · → אחורה · +/− זום' : '→ קדימה · ← אחורה · +/− זום'}</div>
       </div>
     </>
   )
@@ -895,8 +1084,8 @@ export default function RtlReader({ books = [] }) {
 
 /*
  * The library is the books/ folder of the repo, read at build time: a PDF
- * dropped there needs no code change to appear. Only names travel to the
- * client — the files themselves are fetched from GitHub (see data/books.js).
+ * dropped there needs no code change to appear. Books too large for git are
+ * declared in data/books.js and served from a GitHub release.
  */
 export function getStaticProps() {
   const fs = require('fs')
@@ -924,10 +1113,11 @@ export function getStaticProps() {
         title: meta.title || path.basename(name),
         author: meta.author || '',
         year: meta.year ? String(meta.year) : '',
-        kind: meta.kind === 'manuscript' ? 'manuscript' : 'book'
+        kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',
+        dir: meta.dir || null
       }
     })
-    .concat(releaseBooks)
+    .concat(releaseBooks.map(b => ({ dir: null, ...b })))
     .sort((a, b) => a.title.localeCompare(b.title, 'he'))
 
   return { props: { books } }
