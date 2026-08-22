@@ -7,14 +7,17 @@
 //   quote  a passage the author quotes from another book
 //   line   a display line — permutation tables and the like
 //   label  a lead-in line introducing what follows
+//   intro  a note of this edition, before the text itself (never analyzed)
 //   verses the biblical passage a commentary hangs on
 //
 // The text uses the markup of utils/sourceText.js: {letters}, [numbers as
 // letters], «verses quoted inline» and (references), which are auto-detected.
 //
-// `numbers` turns on the gematria highlighting of the ספור tab for that source.
+// `numbers` turns on the gematria highlighting of the ספור tab for that source,
+// and `hide` drops the runs that reading does not keep.
 
 import { ibnEzra } from './ibnEzra'
+import { otsarEdenGanuz } from './otsarEdenGanuz'
 
 const abulafia = {
   id: 'abulafia-tseruf',
@@ -100,4 +103,4 @@ const abulafia = {
   ]
 }
 
-export const sources = [abulafia, ibnEzra]
+export const sources = [abulafia, otsarEdenGanuz, ibnEzra]

@@ -1,17 +1,21 @@
 import Head from 'next/head'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sources } from '../data/sources'
 import { markReferences, parseMarked, tokenizeMarked } from '../utils/sourceText'
 import { analyzeStory, buildLegend } from '../utils/storyAnalysis'
 import { calculateGematria } from '../utils/gematria'
+import { edgePunctuation } from '../utils/storyAnalysis'
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 // --- the four hands of the page -------------------------------------------
 // Plain text, a verse, a letter the text is talking about, a number written
 // with letters — each is set differently, the way a printed page sets them.
 
-// Gershayim and geresh mark a word as letters or as a number; here the setting
-// says it, so the marks come off — א״ה is set אה, כ״ב is set כב.
+// Gershayim and geresh mark a word as letters, as a number, or as a term to be
+// counted; here the setting says it, so the marks come off everywhere — א״ה is
+// set אה, כ״ב is set כב, כת״ר תור״ה is set כתר תורה under its gematria rule.
 const bare = (text) => text.replace(/['"׳״]/g, '')
 
 function Piece({ text, kind }) {
@@ -23,9 +27,9 @@ function Piece({ text, kind }) {
       </span>
     )
   }
-  if (kind === 'verse') return <span className="src-verse-inline">{text}</span>
-  if (kind === 'ref') return <span className="src-ref">{text}</span>
-  return <>{text}</>
+  if (kind === 'verse') return <span className="src-verse-inline">{bare(text)}</span>
+  if (kind === 'ref') return <span className="src-ref">{bare(text)}</span>
+  return <>{bare(text)}</>
 }
 
 function Pieces({ pieces }) {
@@ -41,7 +45,20 @@ function Marked({ text }) {
 // The same text, drawn over the gematria the ספור tab finds in it: every word
 // (or run of words) whose value is one of the chosen numbers gets its color's
 // underline, stacked in lanes when several matches overlap.
-function MarkedWithGematria({ text, block, laneCount }) {
+// The pieces of a token between two character offsets, kinds preserved.
+function slicePieces(pieces, from, to) {
+  const out = []
+  let pos = 0
+  pieces.forEach((piece) => {
+    const start = Math.max(from, pos)
+    const end = Math.min(to, pos + piece.text.length)
+    if (end > start) out.push({ ...piece, text: piece.text.slice(start - pos, end - pos) })
+    pos += piece.text.length
+  })
+  return out
+}
+
+function MarkedWithGematria({ text, block, blockIndex, laneCount }) {
   const tokens = useMemo(() => tokenizeMarked(text), [text])
   if (!block || block.tokens.length !== tokens.length) return <Marked text={text} />
 
@@ -53,25 +70,42 @@ function MarkedWithGematria({ text, block, laneCount }) {
     const layers = cover.map(
       (m) => `linear-gradient(${m.color}, ${m.color}) left 0 bottom ${m.lane * 5}px / 100% 3px no-repeat`
     )
-    const seen = new Set()
-    const title = cover
-      .filter((m) => (seen.has(m.key) ? false : seen.add(m.key)))
-      .map((m) => `${m.value} · ${m.phrase}`)
-      .join('\n')
+    // The rule runs under the word, not under the comma that follows it.
+    const { lead, trail } = edgePunctuation(token.plain)
+    const end = token.plain.length - trail.length
+    const from = end > lead.length ? lead.length : 0
+    const to = end > lead.length ? end : token.plain.length
     return (
-      <span
-        key={i}
-        className="src-token"
-        title={title}
-        style={{ background: layers.join(', '), paddingBottom: `${bottomPad}px` }}
-      >
-        <Pieces pieces={pieces} />
+      <span key={i} className="src-token" data-b={blockIndex} data-t={i}>
+        {from > 0 && <Pieces pieces={slicePieces(pieces, 0, from)} />}
+        <span
+          className="src-token-ink"
+          style={{ background: layers.join(', '), paddingBottom: `${bottomPad}px` }}
+        >
+          <Pieces pieces={slicePieces(pieces, from, to)} />
+        </span>
+        {to < token.plain.length && <Pieces pieces={slicePieces(pieces, to, token.plain.length)} />}
       </span>
     )
   })
 }
 
-function Block({ block, gematria, laneCount, index }) {
+// A figure a color is already assigned to reads as that gematria, and is
+// underlined in its color like the words of the text.
+function TableCell({ value, legend }) {
+  const color = legend && legend.get(Number(value))
+  if (!color) return <>{value}</>
+  return (
+    <span
+      className="src-table-num"
+      style={{ background: `linear-gradient(${color}, ${color}) left bottom / 100% 3px no-repeat` }}
+    >
+      {value}
+    </span>
+  )
+}
+
+function Block({ block, gematria, laneCount, legend, index }) {
   if (block.type === 'verses') {
     return (
       <div className="src-verses">
@@ -85,11 +119,31 @@ function Block({ block, gematria, laneCount, index }) {
     )
   }
 
+  if (block.type === 'table') {
+    return (
+      <table className="src-table">
+        <thead>
+          <tr>{block.head.map((cell, i) => <th key={i}>{cell}</th>)}</tr>
+        </thead>
+        <tbody>
+          {block.rows.map((row, r) => (
+            <tr key={r}>
+              {row.map((cell, c) => (c === 0
+                ? <th key={c} scope="row">{cell}</th>
+                : <td key={c}><TableCell value={cell} legend={legend} /></td>))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
   const body =
     gematria
-      ? <MarkedWithGematria text={block.text} block={gematria[index]} laneCount={laneCount} />
+      ? <MarkedWithGematria text={block.text} block={gematria[index]} blockIndex={index} laneCount={laneCount} />
       : <Marked text={block.text} />
 
+  if (block.type === 'intro') return <p className="src-intro">{body}</p>
   if (block.type === 'head') return <p className="src-head">{body}</p>
   if (block.type === 'label') return <p className="src-label">{body}</p>
   if (block.type === 'line') return <p className="src-line">{body}</p>
@@ -112,6 +166,9 @@ function Block({ block, gematria, laneCount, index }) {
 
 export default function Mekorot() {
   const [activeId, setActiveId] = useState(sources[0].id)
+  const [hoverTip, setHoverTip] = useState(null)
+  const sheetRef = useRef(null)
+  const tipRef = useRef(null)
   const source = sources.find((s) => s.id === activeId) || sources[0]
 
   // Deep link: /mekorot?src=... — read straight from the URL, this is a static page
@@ -127,15 +184,28 @@ export default function Mekorot() {
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
   }, [activeId])
 
-  // Every block is analyzed on its own: a match can never cross a line break, so
+  // Every block is analyzed on its own: a match can never cross a paragraph, so
   // block by block gives exactly the matches the whole text gives.
   const analysis = useMemo(() => {
     if (!source.numbers || source.numbers.length === 0) return null
     const legend = buildLegend(source.numbers)
+    // `hide` names a run by value and phrase; the analysis keys each occurrence
+    // separately, so the keys to drop are read off a first pass.
+    const hidden = new Set(source.hide || [])
     const blocks = source.blocks.map((block) => {
-      if (block.type === 'verses') return null
+      if (block.type === 'verses' || block.type === 'intro' || block.type === 'table') return null
       const tokens = tokenizeMarked(block.text)
-      return analyzeStory(tokens.map((t) => t.plain).join(''), legend, [], false)
+      const text = tokens.map((t) => t.plain).join('')
+      const found = analyzeStory(text, legend, [], false)
+      if (hidden.size === 0) return found
+      // A run the author wrote as a number or as letters is never noise, so a
+      // `hide` entry never reaches one: כי the word goes, [כ״י] the number stays.
+      const marked = tokens.map((t) => t.pieces.some((p) => p.kind === 'num' || p.kind === 'letter'))
+      const covers = (m) => marked.slice(m.tokenStart, m.tokenEnd + 1).some(Boolean)
+      const drop = found.matchList
+        .filter((m) => hidden.has(m.key.split('#')[0]) && !covers(m))
+        .map((m) => m.key)
+      return drop.length === 0 ? found : analyzeStory(text, legend, drop, false)
     })
     const counts = new Map()
     blocks.forEach((b) => b && b.counts.forEach((n, value) => counts.set(value, (counts.get(value) || 0) + n)))
@@ -144,6 +214,54 @@ export default function Mekorot() {
   }, [source])
 
   const lineHeight = analysis ? Math.max(1.95, 1.5 + analysis.laneCount * 0.32) : undefined
+
+  // Break the legend into even rows rather than letting the wrap fall where it
+  // may: nine colors read as 5 + 4, not 8 + 1.
+  const legendCols = useMemo(() => {
+    const n = analysis ? analysis.legend.size : 0
+    return n === 0 ? 1 : Math.ceil(n / Math.ceil(n / 6))
+  }, [analysis])
+
+  // The value behind a word, on hover: the gematriot a counted word carries, or
+  // the number a run of letters spells.
+  const showTip = (e) => {
+    const sheet = sheetRef.current
+    if (!sheet || !e.target.closest) { setHoverTip(null); return }
+    const token = e.target.closest('.src-token')
+    const num = e.target.closest('.src-num')
+    let rows = null
+    if (token && analysis) {
+      const cover = analysis.blocks[Number(token.dataset.b)]?.tokenCover[Number(token.dataset.t)]
+      const seen = new Map()
+      ;(cover || []).forEach((m) => { if (!seen.has(m.key)) seen.set(m.key, m) })
+      rows = Array.from(seen.values()).sort((a, b) => a.value - b.value)
+    } else if (num) {
+      rows = [{ key: 'n', value: calculateGematria(num.textContent), phrase: num.textContent }]
+    }
+    if (!rows || rows.length === 0) { setHoverTip(null); return }
+    const anchor = token || num
+    const sRect = sheet.getBoundingClientRect()
+    const aRect = anchor.getBoundingClientRect()
+    setHoverTip({
+      rows,
+      cx: aRect.left + aRect.width / 2 - sRect.left,
+      topY: aRect.top - sRect.top,
+      botY: aRect.bottom - sRect.top
+    })
+  }
+
+  // Keep the card inside the sheet on both axes, flipping under the word when
+  // there is no room above it.
+  useIsomorphicLayoutEffect(() => {
+    const tip = tipRef.current
+    const sheet = sheetRef.current
+    if (!tip || !sheet || !hoverTip) return
+    const left = Math.max(6, Math.min(hoverTip.cx - tip.offsetWidth / 2, sheet.clientWidth - tip.offsetWidth - 6))
+    let top = hoverTip.topY - tip.offsetHeight - 8
+    if (top < 4) top = hoverTip.botY + 8
+    tip.style.left = `${left}px`
+    tip.style.top = `${top}px`
+  }, [hoverTip])
 
   return (
     <>
@@ -194,7 +312,7 @@ export default function Mekorot() {
           </nav>
 
           <article className="src-page">
-            <div className="src-sheet">
+            <div className="src-sheet" ref={sheetRef} onMouseOver={showTip} onMouseLeave={() => setHoverTip(null)}>
               <header className="src-header">
                 <h1 className="src-title">{source.title}</h1>
                 <div className="src-attrib">{source.author}</div>
@@ -208,7 +326,7 @@ export default function Mekorot() {
                   <span className="src-rule" />
                 </div>
                 {analysis && (
-                  <div className="src-legend">
+                  <div className="src-legend" style={{ '--legend-cols': legendCols }}>
                     {Array.from(analysis.legend.entries()).map(([value, color]) => (
                       <span className="src-legend-item" key={value}>
                         <span className="src-legend-swatch" style={{ background: color }} aria-hidden="true" />
@@ -228,9 +346,22 @@ export default function Mekorot() {
                     block={block}
                     gematria={analysis ? analysis.blocks : null}
                     laneCount={analysis ? analysis.laneCount : 0}
+                    legend={analysis ? analysis.legend : null}
                   />
                 ))}
               </div>
+
+              {hoverTip && (
+                <div className="src-tip" ref={tipRef}>
+                  {hoverTip.rows.map((m) => (
+                    <span className="src-tip-row" key={m.key}>
+                      {m.color && <span className="src-tip-dot" style={{ background: m.color }} aria-hidden="true" />}
+                      <span className="src-tip-value">{m.value}</span>
+                      <span className="src-tip-phrase">{m.phrase}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </article>
         </div>

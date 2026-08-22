@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { calculateGematria } from '../utils/gematria'
 import { generateHebrewNumbers, getHebrewNumberName } from '../utils/hebrewNumbers'
-import { analyzeStory, buildLegend } from '../utils/storyAnalysis'
+import { analyzeStory, buildLegend, edgePunctuation } from '../utils/storyAnalysis'
 
 // useLayoutEffect on the client, useEffect on the server (avoids SSR warning)
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -767,7 +767,7 @@ export default function Home() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Place each התאמות row roughly at the vertical position of its first
+  // Place each התאמות row roughly at the vertical position of its own
   // occurrence in the highlighted text (approximate; ignores independent scroll).
   useIsomorphicLayoutEffect(() => {
     const output = storyOutputRef.current
@@ -777,7 +777,7 @@ export default function Home() {
     const ROW_H = 44
     let cursor = 0
     const tops = storyAnalysis.matchList.map((m) => {
-      const el = output.querySelector(`[data-ti="${m.firstStart}"]`)
+      const el = output.querySelector(`[data-ti="${m.tokenStart}"]`)
       const y = el ? el.getBoundingClientRect().top - outTop : cursor
       const target = Math.max(y, cursor)
       const margin = target - cursor
@@ -1496,18 +1496,17 @@ export default function Home() {
                   const cov = storyAnalysis.tokenCover[i]
                   const inSeq = selectionInfo && selectionInfo.tokenSet && selectionInfo.tokenSet.has(i)
                   const tint = 'linear-gradient(rgba(150, 150, 150, 0.38), rgba(150, 150, 150, 0.38))'
-                  if (!cov || cov.length === 0) {
-                    return (
-                      <span
-                        key={i}
-                        className={`story-token${inSeq ? ' story-token-seqmatch' : ''}`}
-                        style={inSeq ? { background: tint } : undefined}
-                      >
-                        {tok.display}
-                      </span>
-                    )
+                  const highlighted = cov && cov.length > 0
+                  if (!highlighted && !inSeq) {
+                    return <span key={i} className="story-token">{tok.display}</span>
                   }
-                  const layers = cov.map(
+                  // A rule, or the tint of a revealed sequence, runs under the
+                  // word and stops before the punctuation at its edges.
+                  const { lead, trail } = edgePunctuation(tok.display)
+                  const end = tok.display.length - trail.length
+                  const from = end > lead.length ? lead.length : 0
+                  const to = end > lead.length ? end : tok.display.length
+                  const layers = (cov || []).map(
                     (m) => `linear-gradient(${m.color}, ${m.color}) left 0 bottom ${m.lane * 5}px / 100% 3px no-repeat`
                   )
                   if (inSeq) layers.push(tint)
@@ -1515,11 +1514,17 @@ export default function Home() {
                   return (
                     <span
                       key={i}
-                      data-ti={i}
-                      className={`story-token story-token-highlighted${inSeq ? ' story-token-seqmatch' : ''}`}
-                      style={{ background: layers.join(', '), paddingBottom: `${bottomPad}px` }}
+                      data-ti={highlighted ? i : undefined}
+                      className={`story-token${highlighted ? ' story-token-highlighted' : ''}${inSeq ? ' story-token-seqmatch' : ''}`}
                     >
-                      {tok.display}
+                      {tok.display.slice(0, from)}
+                      <span
+                        className="story-token-ink"
+                        style={{ background: layers.join(', '), paddingBottom: highlighted ? `${bottomPad}px` : undefined }}
+                      >
+                        {tok.display.slice(from, to)}
+                      </span>
+                      {tok.display.slice(to)}
                     </span>
                   )
                 })}
@@ -1588,7 +1593,6 @@ export default function Home() {
                             <span className="story-match-dot" style={{ background: m.color }} aria-hidden="true" />
                             <span className="story-match-value">{m.value}</span>
                             <span className="story-match-phrase">{m.phrase}</span>
-                            {m.count > 1 && <span className="story-match-count">×{m.count}</span>}
                           </label>
                         ))}
                         {matchesSpacer > 0 && <div style={{ height: `${matchesSpacer}px`, flexShrink: 0 }} aria-hidden="true" />}

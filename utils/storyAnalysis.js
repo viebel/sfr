@@ -26,6 +26,31 @@ export function buildLegend(numbers) {
   return map
 }
 
+// Geresh and gershayim — and the ASCII apostrophe / quote an OCR puts in their
+// place — mark Hebrew numerals and acronyms, and quotation marks only enclose a
+// phrase. None of them separates two words, so none of them cuts a group.
+const enclosingMarks = /['"׳״‘’“”«»]/g
+
+// Two newlines in a row (a blank line) are the only whitespace that separates
+// two paragraphs; one newline is a wrapped line inside a paragraph.
+const isParagraphBreak = (part) => (part.match(/\n/g) || []).length > 1
+
+// A bracket always ends a sequence, whatever the punctuation toggle says: what
+// sits inside one is an aside — a reference, a gloss — not part of the sentence.
+const brackets = /[()[\]{}\u2329\u232a\u3008\u3009]/
+
+// Punctuation at a word's edge, split from the word: `lead` cuts the sequence
+// before the word, `trail` after it. Exported because a highlight has to stop
+// at the same place — a rule runs under the word, not under its comma.
+export const edgePunctuation = (word) => ({
+  lead: (word.match(/^\p{P}+/u) || [''])[0],
+  trail: (word.match(/\p{P}+$/u) || [''])[0]
+})
+
+// Does this run of edge punctuation separate two words, or is it only a numeral
+// mark / a quote that happens to sit there?
+const separates = (run) => run.replace(enclosingMarks, '') !== ''
+
 // Tokenize the text, find every word / successive-word sequence whose gematria
 // matches one of the chosen numbers, and assign stacking lanes for overlaps.
 export function analyzeStory(text, legend, invalidatedMatches = [], ignorePunctuation = false) {
@@ -35,21 +60,33 @@ export function analyzeStory(text, legend, invalidatedMatches = [], ignorePunctu
     text.split(/(\s+)/).forEach((part) => {
       if (part === '') return
       const isSpace = /^\s+$/.test(part)
-      // The displayed text is NEVER modified — the user's punctuation choice only
-      // affects the calculation. `clean` is the term shown in the matches list
-      // (mid-word signs dropped, edge punctuation trimmed). `hasEdgePunct` drives
+      // The words are NEVER modified — the user's punctuation choice only affects
+      // the calculation. `clean` is the term shown in the matches list (mid-word
+      // signs dropped, edge punctuation trimmed). `cutBefore` / `cutAfter` drive
       // group cutting. Gematria already ignores non-Hebrew characters.
       let clean = part
-      let hasEdgePunct = false
-      if (!isSpace) {
+      let display = part
+      let cutBefore = false
+      let cutAfter = false
+      if (isSpace) {
+        // A lone newline is the source's page width — a PDF or an OCR breaking the
+        // line where the column ended — not a break in the text: it reads as one
+        // space, so the lines are joined back into continuous text, on screen and
+        // for grouping. A blank line is a real paragraph break, and stays one.
+        display = isParagraphBreak(part) ? '\n\n' : ' '
+      } else {
         const noMid = part.replace(/(?<=\p{L})[^\p{L}\p{M}\s]+(?=\p{L})/gu, '')
-        hasEdgePunct = /\p{P}/u.test(noMid)
+        const { lead, trail } = edgePunctuation(noMid)
+        // A bracket cuts unconditionally; the rest only when the user has not
+        // asked for punctuation to be ignored.
+        cutBefore = brackets.test(lead) || (!ignorePunctuation && separates(lead))
+        cutAfter = brackets.test(trail) || (!ignorePunctuation && separates(trail))
         clean = noMid.replace(/^\p{P}+|\p{P}+$/gu, '')
       }
-      tokens.push({ text: part, display: part, clean, isSpace, gematria: isSpace ? 0 : calculateGematria(part), line: lineNo })
-      if (isSpace) lineNo += (part.match(/\n/g) || []).length
-      // When not ignoring punctuation, any (edge) punctuation cuts the group
-      else if (!ignorePunctuation && hasEdgePunct) lineNo += 1
+      if (cutBefore) lineNo += 1
+      tokens.push({ text: part, display, clean, isSpace, gematria: isSpace ? 0 : calculateGematria(part), line: lineNo })
+      if (isSpace) { if (isParagraphBreak(part)) lineNo += 1 }
+      else if (cutAfter) lineNo += 1
     })
   }
 
@@ -69,6 +106,7 @@ export function analyzeStory(text, legend, invalidatedMatches = [], ignorePunctu
   const invalidatedSet = new Set(invalidatedMatches)
 
   const matches = []
+  const occurrences = new Map()
   if (legend.size > 0) {
     for (let a = 0; a < wordValues.length; a++) {
       if (wordValues[a] === 0) continue // a span must start on a Hebrew word
@@ -83,7 +121,12 @@ export function analyzeStory(text, legend, invalidatedMatches = [], ignorePunctu
           for (let t = wordPositions[a]; t <= wordPositions[b]; t++) {
             if (!tokens[t].isSpace) spanWords.push(tokens[t].clean)
           }
-          const key = `${sum}|${spanWords.join(' ')}`
+          const base = `${sum}|${spanWords.join(' ')}`
+          const occ = occurrences.get(base) || 0
+          occurrences.set(base, occ + 1)
+          // Each occurrence masks on its own, so it needs its own key; the first
+          // one keeps the bare form, which older shared links already carry.
+          const key = occ === 0 ? base : `${base}#${occ}`
           matches.push({
             tokenStart: wordPositions[a],
             tokenEnd: wordPositions[b],
@@ -122,30 +165,22 @@ export function analyzeStory(text, legend, invalidatedMatches = [], ignorePunctu
     for (let t = m.tokenStart; t <= m.tokenEnd; t++) tokenCover[t].push(m)
   })
 
-  // Per-number match counts for the legend
+  // Per-number match counts for the legend — what the text actually shows, so a
+  // match the user masked stops being counted.
   const counts = new Map()
-  matches.forEach((m) => counts.set(m.value, (counts.get(m.value) || 0) + 1))
+  rendered.forEach((m) => counts.set(m.value, (counts.get(m.value) || 0) + 1))
 
-  // Deduped list of distinct matches (by phrase+value) for the curation panel,
-  // in reading order, each carrying how many times it occurs in the text.
-  const matchListMap = new Map()
-  matches.forEach((m) => {
-    const existing = matchListMap.get(m.key)
-    if (existing) {
-      existing.count += 1
-    } else {
-      matchListMap.set(m.key, {
-        key: m.key,
-        value: m.value,
-        color: m.color,
-        phrase: m.phrase,
-        invalid: m.invalid,
-        count: 1,
-        firstStart: m.tokenStart
-      })
-    }
-  })
-  const matchList = Array.from(matchListMap.values()).sort((a, b) => a.firstStart - b.firstStart)
+  // One row per occurrence for the curation panel, in reading order: the same
+  // phrase found twice in the text is two rows, each masked on its own.
+  const matchList = matches.map((m) => ({
+    key: m.key,
+    value: m.value,
+    color: m.color,
+    phrase: m.phrase,
+    invalid: m.invalid,
+    tokenStart: m.tokenStart,
+    tokenEnd: m.tokenEnd
+  }))
 
   // Find every word / successive-word sequence whose gematria equals `target`
   // (used to reveal all sequences sharing a selected word's value).
