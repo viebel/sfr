@@ -125,7 +125,7 @@ function shrink(source, maxBytes, keep) {
   if (size <= maxBytes) return { file: source, size, passes: 0 }
   if (!has('gs')) {
     console.warn(
-      `  ⚠ ${(size / MB).toFixed(0)} MB, et ghostscript est absent — envoi tel quel (brew install ghostscript)`
+      `  ⚠ ${(size / MB).toFixed(0)} MB and ghostscript is missing — uploading as is (brew install ghostscript)`
     )
     return { file: source, size, passes: 0 }
   }
@@ -137,7 +137,7 @@ function shrink(source, maxBytes, keep) {
     const got = compress(source, target, pass)
     console.log(
       `  · JPEG ${pass.jpeg}, ${pass.dpi} dpi → ${(got / MB).toFixed(1)} MB` +
-        ` (${Math.round((100 * got) / size)}% de l'original)`
+        ` (${Math.round((100 * got) / size)}% of the original)`
     )
     if (got < best.size) best = { file: target, size: got, passes: i + 1 }
     if (got <= maxBytes) break
@@ -189,11 +189,11 @@ function parse(argv) {
 function main() {
   const { jobs, max, keep, dryRun } = parse(process.argv.slice(2))
   if (!jobs.length) {
-    console.error('Usage: yarn book [--title "…"] [--kind manuscript] <fichier.pdf> […]')
+    console.error('Usage: yarn book [--title "…"] [--kind manuscript] <file.pdf> […]')
     process.exit(1)
   }
   if (!has('gh')) {
-    console.error('gh est requis pour téléverser dans la release (brew install gh)')
+    console.error('gh is required to upload to the release (brew install gh)')
     process.exit(1)
   }
 
@@ -204,7 +204,7 @@ function main() {
 
   if (!dryRun) {
     writeManifest(manifest)
-    console.log(`\ndata/library.json mis à jour — reste à faire :`)
+    console.log(`\ndata/library.json updated — left to do:`)
     console.log(`  git add data/library.json && git commit -m "Add books" && git push`)
   }
 }
@@ -217,7 +217,7 @@ function main() {
 function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun = false } = {}) {
   const source = path.resolve(filePath)
   if (!fs.existsSync(source) || !/\.pdf$/i.test(source)) {
-    console.error(`✗ ${filePath} : introuvable ou pas un PDF`)
+    console.error(`✗ ${filePath}: not found, or not a PDF`)
     process.exitCode = 1
     return null
   }
@@ -230,8 +230,8 @@ function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun
 
   console.log(`\n${title}`)
   const { file, size, passes: used } = shrink(source, max * MB, keep)
-  if (used) console.log(`  ✓ compressé en ${used} passe(s) : ${(size / MB).toFixed(1)} MB`)
-  else console.log(`  · ${(size / MB).toFixed(1)} MB, envoyé tel quel`)
+  if (used) console.log(`  ✓ compressed in ${used} pass(es): ${(size / MB).toFixed(1)} MB`)
+  else console.log(`  · ${(size / MB).toFixed(1)} MB, uploaded as is`)
 
   // GitHub names the asset after the file, so it is uploaded under the id —
   // the accented, spaced, Hebrew original name would not survive the URL.
@@ -242,7 +242,7 @@ function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun
     console.log(`  · (dry run) gh release upload ${tag} ${asset}`)
   } else {
     execFileSync('gh', ['release', 'upload', tag, upload, '--clobber'], { stdio: 'inherit' })
-    console.log(`  ✓ envoyé dans la release ${tag} sous ${asset}`)
+    console.log(`  ✓ uploaded to release ${tag} as ${asset}`)
   }
 
   const entry = {

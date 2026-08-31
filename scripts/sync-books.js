@@ -43,7 +43,7 @@ function releaseAssets(tag) {
     })
     return new Set(JSON.parse(out).assets.map(a => a.name))
   } catch {
-    console.warn(`⚠ impossible de lire la release ${tag} — on se fie au manifeste seul`)
+    console.warn(`⚠ cannot read release ${tag} — going by the manifest alone`)
     return null
   }
 }
@@ -73,7 +73,7 @@ function main() {
   const max = maxIndex >= 0 ? parseFloat(argv[maxIndex + 1]) : 20
 
   if (!has('gh')) {
-    console.error('gh est requis pour téléverser dans la release (brew install gh)')
+    console.error('gh is required to upload to the release (brew install gh)')
     process.exit(1)
   }
 
@@ -87,7 +87,7 @@ function main() {
     return walk(path.join(root, dir)).map(file => ({ file, kind, dir }))
   })
   if (!found.length) {
-    console.log('Rien à publier : books/ et manuscripts/ ne contiennent aucun PDF.')
+    console.log('Nothing to publish: books/ and manuscripts/ hold no PDF.')
     return
   }
 
@@ -103,21 +103,21 @@ function main() {
   }
 
   if (skipped.length) {
-    console.log(`\nDéjà dans la bibliothèque (${skipped.length}) :`)
+    console.log(`\nAlready in the library (${skipped.length}):`)
     skipped.forEach(line => console.log(`  · ${line}`))
   }
 
   if (!added) {
-    console.log('\nRien de nouveau à publier.')
+    console.log('\nNothing new to publish.')
     return
   }
   if (dryRun) {
-    console.log(`\n(dry run) ${added} livre(s) auraient été publiés.`)
+    console.log(`\n(dry run) ${added} book(s) would have been published.`)
     return
   }
 
   writeManifest(manifest)
-  console.log(`\n${added} livre(s) publiés. data/library.json mis à jour — reste à faire :`)
+  console.log(`\n${added} book(s) published. data/library.json updated — left to do:`)
   console.log('  git add data/library.json && git commit -m "Add books" && git push')
 }
 
