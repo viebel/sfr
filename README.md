@@ -50,8 +50,15 @@ qu'il reste à commiter. Options utiles :
 yarn book --title "ספר יצירה" --author "…" --kind manuscript --dir rtl --id yetsira mon-scan.pdf
 ```
 
-`--max 40` relève le seuil de compression, `--dry-run` montre ce qui se
-passerait, `--keep` garde le fichier compressé à côté de l'original.
+`--max 40` relève le seuil, `--as-is` désactive complètement la compression,
+`--dry-run` montre ce qui se passerait, `--keep` garde le fichier compressé à
+côté de l'original.
+
+La compression n'est obligatoire nulle part : un asset de release accepte 2 Go.
+Elle n'existe que pour le temps d'ouverture, puisque chaque lecture passe par la
+fonction edge qui relaie le fichier. Elle ne mord d'ailleurs que sur les scans —
+elle réencode les images en JPEG et plafonne leur résolution — et un PDF de
+texte en ressort plus lourd, auquel cas l'original est envoyé tel quel.
 
 Un asset de release ne renvoie aucun en-tête CORS : le navigateur ne peut pas le
 lire directement, c'est [`pages/api/book/[id].js`](pages/api/book/[id].js) qui le

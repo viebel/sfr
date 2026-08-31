@@ -13,6 +13,7 @@
  * Options:
  *   --force     publish again even what is already there
  *   --max 40    megabytes above which a file is compressed (default: 20)
+ *   --as-is     never compress, whatever a file weighs
  *   --dry-run   say what would happen, upload nothing
  */
 const { execFileSync } = require('child_process')
@@ -74,7 +75,8 @@ function main() {
   const force = argv.includes('--force')
   const dryRun = argv.includes('--dry-run')
   const maxIndex = argv.indexOf('--max')
-  const max = maxIndex >= 0 ? parseFloat(argv[maxIndex + 1]) : 20
+  const asIs = argv.includes('--as-is') || argv.includes('--no-compress')
+  const max = asIs ? Infinity : maxIndex >= 0 ? parseFloat(argv[maxIndex + 1]) : 20
 
   if (!has('gh')) {
     console.error('gh is required to upload to the release (brew install gh)')

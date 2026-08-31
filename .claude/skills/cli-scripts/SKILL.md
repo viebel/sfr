@@ -34,3 +34,4 @@ description: Language and shape of the command-line tooling in scripts/ for the 
 - Assets are named after an ascii id derived from the title (Hebrew is transliterated), because the name has to survive a URL.
 - A file already published is recognised by its derived id, by the `source` file name recorded in the manifest, or by its title — so a book uploaded by hand under a chosen id is never republished under a transliteration.
 - Compression is by passes that tighten until the file fits the target; if no pass beats the original, the original is uploaded. A text PDF usually comes back heavier — that is the signal to leave it alone.
+- Nothing forces it: a release asset may weigh up to 2 GB, and the 20 MB default is about how long a book takes to open through the proxy, not about a limit. `--as-is` turns it off, `--max` moves the line.

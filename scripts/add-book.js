@@ -14,6 +14,7 @@
  *   --dir rtl|ltr         reading direction       (default: guessed from title)
  *   --id my-book          stable id for /library?book=…  (default: from title)
  *   --max 20              megabytes above which it is compressed (default: 20)
+ *   --as-is               never compress, whatever the file weighs
  *   --keep                keep the compressed file next to the original
  *   --dry-run             say what would happen, upload nothing
  */
@@ -183,6 +184,7 @@ function parse(argv) {
     const arg = argv[i]
     if (arg === '--keep') keep = true
     else if (arg === '--dry-run') dryRun = true
+    else if (arg === '--as-is' || arg === '--no-compress') max = Infinity
     else if (arg === '--max') max = parseFloat(argv[++i])
     else if (arg.startsWith('--')) pending[arg.slice(2)] = argv[++i]
     else {
