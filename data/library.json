@@ -1,0 +1,115 @@
+{
+  "release": "books-v1",
+  "books": [
+    {
+      "id": "ibn-ezra-al-hatorah",
+      "file": "ibn-ezra-al-hatorah.pdf",
+      "title": "אבן עזרא על התורה",
+      "author": "ר׳ אברהם אבן עזרא",
+      "year": "1284 · Ms. hébr. 176",
+      "kind": "manuscript",
+      "dir": "rtl",
+      "pages": 488
+    },
+    {
+      "id": "hakhmoni-donolo",
+      "file": "hakhmoni-donolo.pdf",
+      "title": "חכמוני דונולו",
+      "author": "ר׳ שבתי דונולו",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl",
+      "pages": 167
+    },
+    {
+      "id": "sefer-hamispar-ktav-yad",
+      "file": "sefer-hamispar.pdf",
+      "title": "ספר המספר",
+      "author": "ר׳ אברהם אבן עזרא",
+      "year": "",
+      "kind": "manuscript",
+      "dir": "rtl",
+      "pages": 129
+    },
+    {
+      "id": "sefer-hamispar-print",
+      "file": "sefer-hamispar-print.pdf",
+      "title": "ספר המספר",
+      "author": "ר׳ אברהם אבן עזרא",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl",
+      "pages": 207
+    },
+    {
+      "id": "shaarei-tsedek",
+      "file": "shaarei-tsedek.pdf",
+      "title": "שערי צדק וסולם עליה",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl",
+      "pages": 189
+    },
+    {
+      "id": "dictionaire-hebreu-philosophique",
+      "file": "dictionaire-hebreu-philosophique.pdf",
+      "title": "dictionaire hebreu philosophique",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 796
+    },
+    {
+      "id": "groupe-et-tonalites-musicales",
+      "file": "groupe-et-tonalites-musicales.pdf",
+      "title": "groupe et tonalités musicales",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 23
+    },
+    {
+      "id": "on-yantras-in-early-saiva-tantras",
+      "file": "on-yantras-in-early-saiva-tantras.pdf",
+      "title": "On yantras in Early Saiva Tantras",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 32
+    },
+    {
+      "id": "permutations-bernouilli",
+      "file": "permutations-bernouilli.pdf",
+      "title": "permutations Bernouilli",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 640
+    },
+    {
+      "id": "regular-polytopes-coxeter",
+      "file": "regular-polytopes-coxeter.pdf",
+      "title": "Regular Polytopes",
+      "author": "H. S. M. Coxeter",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 278
+    },
+    {
+      "id": "taocp-4a-knuth",
+      "file": "taocp-4a-knuth.pdf",
+      "title": "The Art of Computer Programming 4A",
+      "author": "Donald E. Knuth",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "pages": 901
+    }
+  ]
+}
