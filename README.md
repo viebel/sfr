@@ -25,6 +25,18 @@ Les PDF ne sont pas dans le dépôt : ce sont des assets de la release
 porte que leur description, dans [`data/library.json`](data/library.json), et
 git ne grossit pas quand un scan pèse 170 Mo.
 
+Deux dossiers servent de plan de travail, tous deux git-ignorés : `books/` pour
+les livres imprimés, `manuscripts/` pour les manuscrits — le dossier décide du
+rayon dans la bibliothèque. On y dépose les PDF, puis :
+
+```bash
+yarn books
+```
+
+publie tout ce qui n'y est pas encore et laisse le reste tranquille (`--force`
+pour republier, `--dry-run` pour voir ce qui partirait). Pour un seul fichier,
+n'importe où, avec ses métadonnées :
+
 ```bash
 yarn book mon-livre.pdf
 ```
@@ -46,7 +58,8 @@ lire directement, c'est [`pages/api/book/[id].js`](pages/api/book/[id].js) qui l
 relaie depuis notre propre origine, en transmettant les requêtes `Range` dont
 pdf.js a besoin pour ouvrir la page 400 sans lire les 399 d'avant.
 
-Les scans originaux, eux, restent en local dans `manuscripts/` (git-ignoré).
+Les originaux pleine résolution restent donc en local ; la release ne porte que
+les copies de lecture.
 
 ## Deploy on Vercel
 

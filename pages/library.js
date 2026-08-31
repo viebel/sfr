@@ -27,12 +27,30 @@ function loadPdfjs() {
 // legible when zoomed in, grey mush at the size a page fitted to the window
 // gives 9pt type. Checked on the Hebrew books of the library, which is what the
 // flag had been turned on for: the letters land where they should.
+//
+// The last three are what makes a 46 MB manuscript open at once. Left to
+// itself pdf.js reads a book the way a tape is read — front to back, and the
+// first page waits for the last. A desktop reader instead asks for the handful
+// of bytes the page it is showing is made of, which is what these do:
+//
+//   disableStream     drop the whole-file request as soon as its headers say
+//                     the server takes ranges, instead of draining it;
+//   disableAutoFetch  and don't quietly pull the rest in the background either;
+//   rangeChunkSize    ask in 256 KB pieces rather than 64 KB — every request
+//                     costs a round trip to GitHub through pages/api/book, so
+//                     a quarter of the requests is most of the saving.
+//
+// All three need the proxy to answer the first request with a content-length;
+// that is the whole reason it runs on Node rather than at the edge.
 const pdfjsOptions = {
   cMapUrl: '/pdfjs/cmaps/',
   cMapPacked: true,
   standardFontDataUrl: '/pdfjs/standard_fonts/',
   wasmUrl: '/pdfjs/wasm/',
-  iccUrl: '/pdfjs/iccs/'
+  iccUrl: '/pdfjs/iccs/',
+  disableStream: true,
+  disableAutoFetch: true,
+  rangeChunkSize: 256 * 1024
 }
 
 const zoomSteps = [0.5, 0.67, 0.8, 0.9, 1, 1.15, 1.35, 1.6, 2, 2.5, 3, 4]
@@ -1174,45 +1192,27 @@ export default function Library({ books = [] }) {
 }
 
 /*
- * The library is the books/ folder of the repo, read at build time: a PDF
- * dropped there needs no code change to appear. Books too large for git are
- * declared in data/books.js and served from a GitHub release.
+ * The library is data/library.json, written by `yarn book`: the shelf is a
+ * manifest, and every file behind it is an asset of a GitHub release, fetched
+ * through pages/api/book/[id].js.
  */
 export function getStaticProps() {
-  const fs = require('fs')
-  const path = require('path')
-  const { bookMeta, releaseBooks } = require('../data/books')
+  const { books } = require('../data/books')
 
-  const root = path.join(process.cwd(), 'books')
-
-  const walk = dir =>
-    fs.existsSync(dir)
-      ? fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
-          const full = path.join(dir, entry.name)
-          if (entry.isDirectory()) return walk(full)
-          return /\.pdf$/i.test(entry.name) ? [path.relative(root, full)] : []
-        })
-      : []
-
-  const books = walk(root)
-    .map(file => {
-      const meta = bookMeta[file] || {}
-      const name = file.replace(/\.pdf$/i, '')
-      // macOS stores "é" decomposed in a file name, and git keeps those bytes,
-      // so `file` is left alone — it is what the raw URL has to ask for. The id
-      // and the title are composed: they travel through links and comparisons.
-      return {
-        id: (meta.id || name).normalize('NFC'),
-        file,
-        title: (meta.title || path.basename(name)).normalize('NFC'),
-        author: meta.author || '',
-        year: meta.year ? String(meta.year) : '',
-        kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',
-        dir: meta.dir || null
-      }
-    })
-    .concat(releaseBooks.map(b => ({ dir: null, ...b })))
+  const shelf = books
+    .map(b => ({
+      id: b.id,
+      title: b.title,
+      // macOS writes "é" decomposed in a file name, and that spelling travels
+      // into the manifest; ids and titles are composed here because they are
+      // what links and comparisons carry.
+      author: b.author || '',
+      year: b.year ? String(b.year) : '',
+      kind: b.kind === 'manuscript' ? 'manuscript' : 'book',
+      dir: b.dir || null
+    }))
+    .map(b => ({ ...b, id: b.id.normalize('NFC'), title: b.title.normalize('NFC') }))
     .sort((a, b) => a.title.localeCompare(b.title, 'he'))
 
-  return { props: { books } }
+  return { props: { books: shelf } }
 }

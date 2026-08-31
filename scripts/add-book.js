@@ -198,51 +198,8 @@ function main() {
   }
 
   const manifest = readManifest()
-  const tag = manifest.release
-
   for (const job of jobs) {
-    const source = path.resolve(job.file)
-    if (!fs.existsSync(source) || !/\.pdf$/i.test(source)) {
-      console.error(`✗ ${job.file} : introuvable ou pas un PDF`)
-      process.exitCode = 1
-      continue
-    }
-
-    const original = path.basename(source, path.extname(source)).normalize('NFC')
-    const title = (job.meta.title || original).normalize('NFC')
-    const id = job.meta.id || slug(title)
-    const asset = `${id}.pdf`
-
-    console.log(`\n${title}`)
-    const { file, size, passes: used } = shrink(source, max * MB, keep)
-    if (used) console.log(`  ✓ compressé en ${used} passe(s) : ${(size / MB).toFixed(1)} MB`)
-    else console.log(`  · ${(size / MB).toFixed(1)} MB, envoyé tel quel`)
-
-    // GitHub names the asset after the file, so it is uploaded under the id —
-    // the accented, spaced, Hebrew original name would not survive the URL.
-    const upload = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sfr-asset-')), asset)
-    fs.copyFileSync(file, upload)
-
-    if (dryRun) {
-      console.log(`  · (dry run) gh release upload ${tag} ${asset}`)
-    } else {
-      execFileSync('gh', ['release', 'upload', tag, upload, '--clobber'], { stdio: 'inherit' })
-      console.log(`  ✓ envoyé dans la release ${tag} sous ${asset}`)
-    }
-
-    const entry = {
-      id,
-      file: asset,
-      title,
-      author: job.meta.author || '',
-      year: job.meta.year || '',
-      kind: job.meta.kind === 'manuscript' ? 'manuscript' : 'book',
-      dir: job.meta.dir || guessDir(title),
-      pages: pdfPages(file) || undefined
-    }
-    const existing = manifest.books.findIndex(b => b.id === id)
-    if (existing >= 0) manifest.books[existing] = { ...manifest.books[existing], ...entry }
-    else manifest.books.push(entry)
+    addBook(manifest, job.file, job.meta, { max, keep, dryRun })
   }
 
   if (!dryRun) {
@@ -252,4 +209,61 @@ function main() {
   }
 }
 
-main()
+/*
+ * Publishes one PDF and records it in the manifest, which it mutates. Shared
+ * with scripts/sync-books.js, which walks the two folders and calls this for
+ * everything not already published.
+ */
+function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun = false } = {}) {
+  const source = path.resolve(filePath)
+  if (!fs.existsSync(source) || !/\.pdf$/i.test(source)) {
+    console.error(`✗ ${filePath} : introuvable ou pas un PDF`)
+    process.exitCode = 1
+    return null
+  }
+
+  const original = path.basename(source, path.extname(source)).normalize('NFC')
+  const title = (meta.title || original).normalize('NFC')
+  const id = meta.id || slug(title)
+  const asset = `${id}.pdf`
+  const tag = manifest.release
+
+  console.log(`\n${title}`)
+  const { file, size, passes: used } = shrink(source, max * MB, keep)
+  if (used) console.log(`  ✓ compressé en ${used} passe(s) : ${(size / MB).toFixed(1)} MB`)
+  else console.log(`  · ${(size / MB).toFixed(1)} MB, envoyé tel quel`)
+
+  // GitHub names the asset after the file, so it is uploaded under the id —
+  // the accented, spaced, Hebrew original name would not survive the URL.
+  const upload = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sfr-asset-')), asset)
+  fs.copyFileSync(file, upload)
+
+  if (dryRun) {
+    console.log(`  · (dry run) gh release upload ${tag} ${asset}`)
+  } else {
+    execFileSync('gh', ['release', 'upload', tag, upload, '--clobber'], { stdio: 'inherit' })
+    console.log(`  ✓ envoyé dans la release ${tag} sous ${asset}`)
+  }
+
+  const entry = {
+    id,
+    file: asset,
+    // what it was called on disk, so a second pass over the folder recognises
+    // a book that was published under a hand-picked id
+    source: path.basename(source).normalize('NFC'),
+    title,
+    author: meta.author || '',
+    year: meta.year || '',
+    kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',
+    dir: meta.dir || guessDir(title),
+    pages: pdfPages(file) || undefined
+  }
+  const existing = manifest.books.findIndex(b => b.id === id)
+  if (existing >= 0) manifest.books[existing] = { ...manifest.books[existing], ...entry }
+  else manifest.books.push(entry)
+  return entry
+}
+
+module.exports = { addBook, readManifest, writeManifest, slug, has }
+
+if (require.main === module) main()
