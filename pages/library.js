@@ -1,7 +1,9 @@
 import Head from 'next/head'
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AppNav from '../components/AppNav'
 import { bookHref } from '../data/books'
+import { sources } from '../data/sources'
 import { pickView, readHistory, readingStateOf, recordRead } from '../utils/readingHistory'
 import { loadSession, saveSession } from '../utils/readerSession'
 
@@ -22,35 +24,56 @@ function loadPdfjs() {
 // pdf.js fetches these by URL at runtime; without them PDFs using CID fonts,
 // non-embedded standard fonts or JPEG2000 images render wrong.
 //
-// Font faces are left on (pdf.js's own default): the browser then rasterises
-// the embedded fonts with hinting, where disableFontFace paints bare outlines —
-// legible when zoomed in, grey mush at the size a page fitted to the window
-// gives 9pt type. Checked on the Hebrew books of the library, which is what the
-// flag had been turned on for: the letters land where they should.
-//
-// The last three are what makes a 46 MB manuscript open at once. Left to
-// itself pdf.js reads a book the way a tape is read — front to back, and the
-// first page waits for the last. A desktop reader instead asks for the handful
-// of bytes the page it is showing is made of, which is what these do:
-//
-//   disableStream     drop the whole-file request as soon as its headers say
-//                     the server takes ranges, instead of draining it;
-//   disableAutoFetch  and don't quietly pull the rest in the background either;
-//   rangeChunkSize    ask in 256 KB pieces rather than 64 KB — every request
-//                     costs a round trip to GitHub through pages/api/book, so
-//                     a quarter of the requests is most of the saving.
-//
-// All three need the proxy to answer the first request with a content-length;
-// that is the whole reason it runs on Node rather than at the edge.
+/*
+ * disableFontFace: pdf.js paints the letters itself, from the outlines in the
+ * file, instead of handing the browser a font it rebuilt from the embedded
+ * subset and letting the browser's font engine draw it.
+ *
+ * Handing it over renders a little better — the engine hints the stems, and the
+ * same page carries about a fifth more ink than the outlines do, which at the
+ * size a page fitted to the window gives 9pt type is the difference between
+ * crisp and grey. That is why it had been left on.
+ *
+ * But it makes the page depend on what the browser makes of that rebuilt font,
+ * and some of them lose glyphs in it. A PDF written by LibreOffice — symbolic
+ * TrueType subsets, no /Encoding, one glyph placed at a time — came back with
+ * every ו and every י missing: their width still reserved, so the words fell
+ * apart into scattered letters, while the same file was fine in ghostscript and
+ * fine here. Outlines cannot lose a letter that way; nothing between pdf.js and
+ * the canvas can drop it. A thinner stem is worth that.
+ */
 const pdfjsOptions = {
   cMapUrl: '/pdfjs/cmaps/',
   cMapPacked: true,
   standardFontDataUrl: '/pdfjs/standard_fonts/',
   wasmUrl: '/pdfjs/wasm/',
   iccUrl: '/pdfjs/iccs/',
+  disableFontFace: true
+}
+
+/*
+ * Reading a book the way a desktop reader does: ask for the bytes of the page
+ * on screen and leave the rest of the file where it is.
+ *
+ *   disableStream     drop the whole-file request as soon as its headers say
+ *                     the server takes ranges, instead of draining it;
+ *   disableAutoFetch  and don't quietly pull the rest in the background either;
+ *   rangeChunkSize    ask in 256 KB pieces rather than 64 KB — every request is
+ *                     a round trip through pages/api/book to the release, and a
+ *                     scanned page is about that big.
+ *
+ * These only bite because the reader no longer walks to the last page before
+ * it opens a book — see the patch in scripts/copy-pdf-worker.js, without which
+ * a flat page tree makes pdf.js read the whole file whatever it is asked.
+ */
+const readAsNeeded = {
   disableStream: true,
   disableAutoFetch: true,
   rangeChunkSize: 256 * 1024
+}
+
+function bookSource(book) {
+  return { url: bookHref(book), ...readAsNeeded }
 }
 
 const zoomSteps = [0.5, 0.67, 0.8, 0.9, 1, 1.15, 1.35, 1.6, 2, 2.5, 3, 4]
@@ -105,6 +128,15 @@ const IconScroll = ({ size = 20 }) => (
     <rect x="3.6" y="4.5" width="3" height="15" rx="1.5" />
     <rect x="17.4" y="4.5" width="3" height="15" rx="1.5" />
     <path d="M8.6 8.5h6.8M8.6 12h6.8M8.6 15.5h6.8" />
+  </Icon>
+)
+/* מקורות are springs: water rising from a mouth in the ground, in the same
+   line weight as the shelves beside it. */
+const IconSpring = ({ size = 20 }) => (
+  <Icon size={size}>
+    <path d="M3.5 17.5h17" />
+    <path d="M7.5 17.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" />
+    <path d="M12 9.5V4.2M8.6 10.6 6.4 6.6M15.4 10.6l2.2-4" />
   </Icon>
 )
 const IconClock = ({ size = 20 }) => (
@@ -239,6 +271,24 @@ function renderScale(viewport) {
     : wanted
 }
 
+/*
+ * Which way a book opens, when three answers are on the table: the one declared
+ * in data/library.json, the one this reader last read it with, and the guess
+ * from its title.
+ *
+ * The stored answer normally wins — flipping the direction on a book is meant
+ * to stick. But a declared direction that has changed since wins over it:
+ * editing library.json is how a book's binding gets corrected, and the
+ * correction has to reach a reader who already opened it once. Which of the two
+ * happened is told by dirFrom, the declaration the stored answer settled
+ * against.
+ */
+function resolveDir(title, declared, view) {
+  if (declared && view?.dirFrom !== declared) return { dir: declared, dirFrom: declared }
+  if (view?.dir) return { dir: view.dir, dirFrom: view.dirFrom ?? declared ?? null }
+  return { dir: guessDir(title, declared), dirFrom: declared ?? null }
+}
+
 function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation }) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
@@ -363,7 +413,7 @@ const defaultView = () => ({
   rotation: 0
 })
 
-function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
+function newDoc({ key, title, bookId, source, dir, dirFrom, page, view, status = 'loading' }) {
   const settings = { ...defaultView(), ...(view || {}) }
   return {
     key,
@@ -378,7 +428,8 @@ function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading
     page: page || 1,
     pageDraft: String(page || 1),
     ...settings,
-    dir: dir || settings.dir || 'rtl'
+    dir: dir || settings.dir || 'rtl',
+    dirFrom: dirFrom !== undefined ? dirFrom : settings.dirFrom || null
   }
 }
 
@@ -500,7 +551,7 @@ export default function Library({ books = [] }) {
           source,
           page: start,
           view: saved.view,
-          dir: guessDir(title, saved.view?.dir || declared)
+          ...resolveDir(title, declared, saved.view)
         })
       ])
       setActiveKey(key)
@@ -525,7 +576,7 @@ export default function Library({ books = [] }) {
   const openBook = useCallback(
     (book, page) => {
       openDoc({
-        source: { url: bookHref(book) },
+        source: bookSource(book),
         title: book.title,
         bookId: book.id,
         dir: book.dir,
@@ -577,10 +628,10 @@ export default function Library({ books = [] }) {
         key: `doc${++keySeqRef.current}`,
         title: book.title,
         bookId: book.id,
-        source: { url: bookHref(book) },
+        source: bookSource(book),
         page: saved.page || 1,
         view: saved.view,
-        dir: guessDir(book.title, saved.view?.dir || book.dir),
+        ...resolveDir(book.title, book.dir, saved.view),
         status: 'idle'
       })
     }
@@ -608,7 +659,9 @@ export default function Library({ books = [] }) {
       front = newDoc({
         key: `doc${++keySeqRef.current}`,
         title: name,
-        source: { url },
+        // A PDF from anywhere else is read the same way; a server that will not
+        // do ranges just gets the whole file, which is pdf.js's own fallback.
+        source: { url, ...readAsNeeded },
         page: page || 1,
         dir: guessDir(name),
         status: 'idle'
@@ -820,8 +873,9 @@ export default function Library({ books = [] }) {
     else el.requestFullscreen?.()
   }
 
-  // Printed books and manuscripts are two shelves of the same library, and what
-  // you were reading is a third one — the one you reach for most.
+  // Printed books, manuscripts and the מקורות set as pages are shelves of the
+  // same library, and what you were reading is one more — the one you reach for
+  // most.
   const shelves = useMemo(() => {
     const recent = history
       .map(entry => {
@@ -844,6 +898,20 @@ export default function Library({ books = [] }) {
         label: 'כתבי יד',
         icon: <IconScroll />,
         items: books.filter(b => b.kind === 'manuscript')
+      },
+      {
+        kind: 'source',
+        label: 'מקורות',
+        icon: <IconSpring />,
+        // A source is not a PDF the reader opens but a page of its own; the
+        // shelf carries where it is read rather than a book to load.
+        items: sources.map(source => ({
+          id: source.id,
+          title: source.nav,
+          author: source.author,
+          year: source.work,
+          href: `/mekorot?src=${encodeURIComponent(source.id)}`
+        }))
       }
     ].filter(shelf => shelf.items.length > 0)
   }, [books, history])
@@ -863,13 +931,6 @@ export default function Library({ books = [] }) {
         <title>ס.פ.ר — ספרייה</title>
         <meta name="description" content="ספרייה וקורא PDF, מימין לשמאל ומשמאל לימין" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div
@@ -884,9 +945,7 @@ export default function Library({ books = [] }) {
         }}
         onDrop={onDrop}
       >
-        <div className="pdfr-appnav">
-          <AppNav current="library" compact />
-        </div>
+        <AppNav current="library" />
 
         <div className="pdfr-toolbar">
           <div className="pdfr-toolbar-group">
@@ -1155,23 +1214,39 @@ export default function Library({ books = [] }) {
                         >
                           {shelf.icon}
                         </div>
-                        {shelf.items.map(book => (
-                          <button
-                            type="button"
-                            key={`${shelf.kind}-${book.id}`}
-                            className={`pdfr-book${book.id === doc?.bookId ? ' on' : ''}`}
-                            onClick={() => openBook(book, book.resumePage)}
-                            title={book.title}
-                          >
-                            <span className="pdfr-book-title">{book.title}</span>
-                            <span className="pdfr-book-meta">
-                              {[book.author, book.year].filter(Boolean).join(' · ')}
-                              {book.resumePage ? (
-                                <span className="pdfr-book-page">עמוד {book.resumePage}</span>
-                              ) : null}
-                            </span>
-                          </button>
-                        ))}
+                        {shelf.items.map(book => {
+                          const inside = (
+                            <>
+                              <span className="pdfr-book-title">{book.title}</span>
+                              <span className="pdfr-book-meta">
+                                {[book.author, book.year].filter(Boolean).join(' · ')}
+                                {book.resumePage ? (
+                                  <span className="pdfr-book-page">עמוד {book.resumePage}</span>
+                                ) : null}
+                              </span>
+                            </>
+                          )
+                          return book.href ? (
+                            <Link
+                              key={`${shelf.kind}-${book.id}`}
+                              href={book.href}
+                              className="pdfr-book"
+                              title={book.title}
+                            >
+                              {inside}
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              key={`${shelf.kind}-${book.id}`}
+                              className={`pdfr-book${book.id === doc?.bookId ? ' on' : ''}`}
+                              onClick={() => openBook(book, book.resumePage)}
+                              title={book.title}
+                            >
+                              {inside}
+                            </button>
+                          )
+                        })}
                       </div>
                     ))}
                     {books.length === 0 && (

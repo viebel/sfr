@@ -11,7 +11,18 @@ const KEY = 'sfr.reading-history'
 const MAX = 30
 
 // Every setting that belongs to one book rather than to the reader as a whole.
-export const VIEW_KEYS = ['dir', 'spread', 'coverAlone', 'fitMode', 'zoomIndex', 'rotation']
+// dirFrom records which declared direction the stored `dir` was settled
+// against, so a later change in data/library.json can be told apart from the
+// reader's own choice. See resolveDir in pages/library.js.
+export const VIEW_KEYS = [
+  'dir',
+  'dirFrom',
+  'spread',
+  'coverAlone',
+  'fitMode',
+  'zoomIndex',
+  'rotation'
+]
 
 export function pickView(source) {
   const view = {}

@@ -13,6 +13,26 @@
       "source": "manuscripts/אבן עזרא על התורה.pdf"
     },
     {
+      "id": "bn-zr-l-htvrh",
+      "file": "bn-zr-l-htvrh.pdf",
+      "source": "manuscripts/אבן עזרא על התורה.pdf",
+      "title": "אבן עזרא על התורה",
+      "author": "",
+      "year": "",
+      "kind": "manuscript",
+      "dir": "rtl"
+    },
+    {
+      "id": "hkmvny",
+      "file": "hkmvny.pdf",
+      "source": "books/חכמוני דונולו.pdf",
+      "title": "חכמוני",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
+    },
+    {
       "id": "hakhmoni-donolo",
       "file": "hakhmoni-donolo.pdf",
       "title": "חכמוני דונולו",
@@ -22,6 +42,16 @@
       "dir": "rtl",
       "pages": 167,
       "source": "books/חכמוני דונולו.pdf"
+    },
+    {
+      "id": "svlm-hlyh",
+      "file": "svlm-hlyh.pdf",
+      "source": "manuscripts/סולם העליה.pdf",
+      "title": "סולם העליה",
+      "author": "",
+      "year": "",
+      "kind": "manuscript",
+      "dir": "rtl"
     },
     {
       "id": "sefer-hamispar-ktav-yad",
@@ -46,6 +76,26 @@
       "source": "books/ספר המספר.pdf"
     },
     {
+      "id": "spr-hmspr",
+      "file": "spr-hmspr.pdf",
+      "source": "manuscripts/ספר המספר.pdf",
+      "title": "ספר המספר",
+      "author": "",
+      "year": "",
+      "kind": "manuscript",
+      "dir": "rtl"
+    },
+    {
+      "id": "spbrtsrh-b-nvshvbhqdvm",
+      "file": "spbrtsrh-b-nvshvbhqdvm.pdf",
+      "source": "books/תרביץ ספר יצירה.pdf",
+      "title": "ספר יצירה בנוסחו הקדום",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
+    },
+    {
       "id": "shaarei-tsedek",
       "file": "shaarei-tsedek.pdf",
       "title": "שערי צדק וסולם עליה",
@@ -57,20 +107,50 @@
       "source": "books/שערי צדק וסולם עליה pdf.pdf"
     },
     {
-      "id": "dictionaire-hebreu-philosophique",
-      "file": "dictionaire-hebreu-philosophique.pdf",
-      "title": "dictionaire hebreu philosophique",
+      "id": "shry-tsdq-vsvlm-lyh",
+      "file": "shry-tsdq-vsvlm-lyh.pdf",
+      "source": "books/שערי צדק וסולם עליה pdf.pdf",
+      "title": "שערי צדק וסולם עליה",
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr",
+      "dir": "rtl"
+    },
+    {
+      "id": "ars-conjectandi",
+      "file": "ars-conjectandi.pdf",
+      "source": "books/permutations Bernouilli.pdf",
+      "title": "Ars Conjectandi",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
+    },
+    {
+      "id": "art-of-programming-4a-knuth",
+      "file": "art-of-programming-4a-knuth.pdf",
+      "source": "books/art of programming 4a - knuth.pdf",
+      "title": "Art of Programming 4A - Knuth",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
+    },
+    {
+      "id": "dictionaire-hebreu-philosophique",
+      "file": "dictionaire-hebreu-philosophique.pdf",
+      "title": "Dictionaire hébreu philosophique",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl",
       "pages": 796,
       "source": "books/dictionaire hebreu philosophique.pdf"
     },
     {
       "id": "groupe-et-tonalites-musicales",
       "file": "groupe-et-tonalites-musicales.pdf",
-      "title": "groupe et tonalités musicales",
+      "title": "Groupe et tonalités musicales",
       "author": "",
       "year": "",
       "kind": "book",
@@ -79,20 +159,9 @@
       "source": "books/groupe et tonalités musicales.pdf"
     },
     {
-      "id": "on-yantras-in-early-saiva-tantras",
-      "file": "on-yantras-in-early-saiva-tantras.pdf",
-      "title": "On yantras in Early Saiva Tantras",
-      "author": "",
-      "year": "",
-      "kind": "book",
-      "dir": "ltr",
-      "pages": 32,
-      "source": "manuscripts/On_yantras_in_Early_Saiva_Tantras.pdf"
-    },
-    {
       "id": "permutations-bernouilli",
       "file": "permutations-bernouilli.pdf",
-      "title": "permutations Bernouilli",
+      "title": "Permutations Bernouilli",
       "author": "",
       "year": "",
       "kind": "book",
@@ -103,13 +172,23 @@
     {
       "id": "regular-polytopes-coxeter",
       "file": "regular-polytopes-coxeter.pdf",
-      "title": "Regular Polytopes",
-      "author": "H. S. M. Coxeter",
+      "title": "Regular Polytopes - Coxeter",
+      "author": "",
       "year": "",
       "kind": "book",
       "dir": "ltr",
       "pages": 278,
       "source": "books/Regular Polytopes - Coxeter.pdf"
+    },
+    {
+      "id": "sefer-yesira-scientific-edition",
+      "file": "sefer-yesira-scientific-edition.pdf",
+      "source": "books/hayman.pdf",
+      "title": "Sefer Yesira - Scientific Edition",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
     },
     {
       "id": "taocp-4a-knuth",
@@ -121,6 +200,16 @@
       "dir": "ltr",
       "pages": 901,
       "source": "books/art of programming 4a - knuth.pdf"
+    },
+    {
+      "id": "the-earliest-version-of-sefer-yeirah-te",
+      "file": "the-earliest-version-of-sefer-yeirah-te.pdf",
+      "source": "books/The_Earliest_Version_of_Sefer_Yeirah_Te.pdf",
+      "title": "The Earliest Version of Sefer Yeirah Te",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
     }
   ]
 }
