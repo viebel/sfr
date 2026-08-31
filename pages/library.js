@@ -271,24 +271,6 @@ function renderScale(viewport) {
     : wanted
 }
 
-/*
- * Which way a book opens, when three answers are on the table: the one declared
- * in data/library.json, the one this reader last read it with, and the guess
- * from its title.
- *
- * The stored answer normally wins — flipping the direction on a book is meant
- * to stick. But a declared direction that has changed since wins over it:
- * editing library.json is how a book's binding gets corrected, and the
- * correction has to reach a reader who already opened it once. Which of the two
- * happened is told by dirFrom, the declaration the stored answer settled
- * against.
- */
-function resolveDir(title, declared, view) {
-  if (declared && view?.dirFrom !== declared) return { dir: declared, dirFrom: declared }
-  if (view?.dir) return { dir: view.dir, dirFrom: view.dirFrom ?? declared ?? null }
-  return { dir: guessDir(title, declared), dirFrom: declared ?? null }
-}
-
 function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation }) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
@@ -413,7 +395,7 @@ const defaultView = () => ({
   rotation: 0
 })
 
-function newDoc({ key, title, bookId, source, dir, dirFrom, page, view, status = 'loading' }) {
+function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
   const settings = { ...defaultView(), ...(view || {}) }
   return {
     key,
@@ -428,8 +410,10 @@ function newDoc({ key, title, bookId, source, dir, dirFrom, page, view, status =
     page: page || 1,
     pageDraft: String(page || 1),
     ...settings,
-    dir: dir || settings.dir || 'rtl',
-    dirFrom: dirFrom !== undefined ? dirFrom : settings.dirFrom || null
+    // The binding is the book's, not the reader's: it comes from the manifest
+    // every time the book is opened. The toolbar can still turn a book around,
+    // for as long as its tab is open.
+    dir: dir || 'rtl'
   }
 }
 
@@ -551,7 +535,7 @@ export default function Library({ books = [] }) {
           source,
           page: start,
           view: saved.view,
-          ...resolveDir(title, declared, saved.view)
+          dir: guessDir(title, declared)
         })
       ])
       setActiveKey(key)
@@ -631,7 +615,7 @@ export default function Library({ books = [] }) {
         source: bookSource(book),
         page: saved.page || 1,
         view: saved.view,
-        ...resolveDir(book.title, book.dir, saved.view),
+        dir: guessDir(book.title, book.dir),
         status: 'idle'
       })
     }

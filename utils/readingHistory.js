@@ -10,19 +10,15 @@
 const KEY = 'sfr.reading-history'
 const MAX = 30
 
-// Every setting that belongs to one book rather than to the reader as a whole.
-// dirFrom records which declared direction the stored `dir` was settled
-// against, so a later change in data/library.json can be told apart from the
-// reader's own choice. See resolveDir in pages/library.js.
-export const VIEW_KEYS = [
-  'dir',
-  'dirFrom',
-  'spread',
-  'coverAlone',
-  'fitMode',
-  'zoomIndex',
-  'rotation'
-]
+/*
+ * Every setting that belongs to one book rather than to the reader as a whole.
+ *
+ * Not the reading direction: which way a book is bound is a fact about the
+ * book, and it is declared in data/library.json. Remembering it here would let
+ * a browser's memory outvote the manifest, and correcting an entry would stop
+ * reaching anyone who had already opened it.
+ */
+export const VIEW_KEYS = ['spread', 'coverAlone', 'fitMode', 'zoomIndex', 'rotation']
 
 export function pickView(source) {
   const view = {}
