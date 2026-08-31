@@ -33,9 +33,15 @@ rayon dans la bibliothèque. On y dépose les PDF, puis :
 yarn books
 ```
 
-publie tout ce qui n'y est pas encore et laisse le reste tranquille (`--force`
-pour republier, `--dry-run` pour voir ce qui partirait). Pour un seul fichier,
-n'importe où, avec ses métadonnées :
+publie tout ce qui n'y est pas encore et laisse le reste tranquille. Pour chaque
+nouveau fichier, la commande demande le titre (en proposant celui que le PDF se
+donne, quand il en a un qui vaille la peine), le sens de lecture et l'id qui
+servira de lien ; pour un livre dont le fichier a quitté le bureau, elle demande
+s'il faut le garder ou le retirer — entrée du manifeste et asset de la release.
+Garder se retient, la question n'est posée qu'une fois. `--yes` prend tous les
+défauts, `--force` republie, `--dry-run` n'écrit rien.
+
+Pour un seul fichier, n'importe où, avec ses métadonnées :
 
 ```bash
 yarn book mon-livre.pdf

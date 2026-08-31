@@ -20,6 +20,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
+const { balancePages } = require('./balance-pages')
+
 const root = path.join(__dirname, '..')
 const manifestPath = path.join(root, 'data', 'library.json')
 const MB = 1024 * 1024
@@ -66,6 +68,73 @@ function readManifest() {
 function writeManifest(manifest) {
   manifest.books.sort((a, b) => a.title.localeCompare(b.title, 'he'))
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+}
+
+
+/*
+ * The title a PDF gives itself, from the Info dictionary — not from the first
+ * /Title in the file, which is as likely to be a bookmark. It is best effort:
+ * the Info object may sit in a compressed object stream, out of reach without a
+ * full parser, and what comes back is often the name of a LaTeX source anyway.
+ * That is why the caller asks rather than trusts.
+ */
+function pdfTitle(file) {
+  const window = 2e6 // Info lives near one end or the other
+  let fd
+  try {
+    fd = fs.openSync(file, 'r')
+    const size = fs.statSync(file).size
+    const read = (start, length) => {
+      const buf = Buffer.alloc(Math.max(0, Math.min(length, size - start)))
+      if (buf.length) fs.readSync(fd, buf, 0, buf.length, start)
+      return buf.toString('latin1')
+    }
+    const head = read(0, window)
+    const tail = size > window ? read(size - window, window) : ''
+
+    const ref = (tail + head).match(/\/Info\s+(\d+)\s+\d+\s+R/)
+    if (!ref) return ''
+    const object = new RegExp(`(?:^|[^0-9])${ref[1]}\\s+0\\s+obj([^]*?)endobj`)
+    const body = (head.match(object) || tail.match(object) || [])[1]
+    if (!body) return ''
+
+    const raw = body.match(/\/Title\s*(\((?:[^\\()]|\\.)*\)|<[0-9A-Fa-f\s]+>)/)
+    return raw ? cleanTitle(decodePdfString(raw[1])) : ''
+  } catch {
+    return ''
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd)
+  }
+}
+
+function decodePdfString(token) {
+  let bytes
+  if (token.startsWith('<')) {
+    bytes = Buffer.from(token.slice(1, -1).replace(/\s/g, ''), 'hex')
+  } else {
+    const escapes = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f' }
+    bytes = Buffer.from(
+      token
+        .slice(1, -1)
+        .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+        .replace(/\\(.)/g, (_, ch) => escapes[ch] || ch),
+      'latin1'
+    )
+  }
+  // UTF-16BE announces itself with a byte order mark; anything else is close
+  // enough to latin1 for a title we are about to have confirmed by hand.
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return bytes.swap16().toString('utf16le').slice(1)
+  return bytes.toString('latin1')
+}
+
+// Producers leave the source file name in there — offering "musikIUFtot.tex" as
+// a title helps no one.
+function cleanTitle(title) {
+  const clean = title.replace(/\u0000/g, '').trim()
+  if (!clean) return ''
+  if (/\.(tex|doc|docx|pdf|indd|qxd|rtf|odt|dvi|ps)$/i.test(clean)) return ''
+  if (/^Microsoft Word\s*-/i.test(clean)) return ''
+  return clean
 }
 
 // The name to remember a source file by: its path in the repo, or failing that
@@ -142,6 +211,22 @@ function addBook(manifest, filePath, meta = {}, { dryRun = false } = {}) {
   const upload = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sfr-asset-')), asset)
   fs.copyFileSync(source, upload)
 
+  // Ghostscript and most scanners write a flat page tree, and the reader then
+  // has to fetch the whole book before it can draw the first page. Grouping the
+  // pages is what lets it read only what it shows; it is done on the copy, so
+  // the file on the desk is left byte for byte as it was.
+  const tree = balancePages(upload, upload)
+  const lazy = tree.balanced || tree.skipped === 'already grouped' || tree.skipped === 'already shallow'
+  if (tree.balanced) {
+    console.log(`  ✓ ${tree.pages} pages grouped ${tree.groups} ways — opens without reading it whole`)
+  } else if (tree.skipped === 'already grouped' || tree.skipped === 'already shallow') {
+    console.log(`  · page tree already groups its pages`)
+  } else {
+    console.warn(
+      `  ⚠ page tree left flat (${tree.skipped}) — the reader will fetch the whole file to open it`
+    )
+  }
+
   if (dryRun) {
     console.log(`  · (dry run) gh release upload ${tag} ${asset}`)
   } else {
@@ -161,7 +246,11 @@ function addBook(manifest, filePath, meta = {}, { dryRun = false } = {}) {
     author: meta.author || '',
     year: meta.year || '',
     kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',
-    dir: meta.dir || guessDir(title)
+    dir: meta.dir || guessDir(title),
+    // Whether the asset uploaded just now can be read a page at a time. A book
+    // published before its page tree was grouped has no flag, and the reader
+    // goes on downloading it whole — until it is uploaded again.
+    lazy
   }
   const existing = manifest.books.findIndex(b => b.id === id)
   if (existing >= 0) manifest.books[existing] = { ...manifest.books[existing], ...entry }
@@ -169,6 +258,6 @@ function addBook(manifest, filePath, meta = {}, { dryRun = false } = {}) {
   return entry
 }
 
-module.exports = { addBook, readManifest, writeManifest, slug, has, sourceName }
+module.exports = { addBook, readManifest, writeManifest, slug, has, sourceName, pdfTitle, guessDir }
 
 if (require.main === module) main()
