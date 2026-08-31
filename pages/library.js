@@ -1073,7 +1073,15 @@ export default function Library({ books = [] }) {
             <button
               type="button"
               className={`pdfr-btn${doc?.fitMode === 'width' ? ' on' : ''}`}
-              onClick={() => patchActive({ fitMode: doc?.fitMode === 'page' ? 'width' : 'page' })}
+              onClick={() => {
+                // Fitting the page and then keeping a 200% multiplier on top of
+                // it fits nothing: asking for the whole page puts the zoom back
+                // to where the fit is what you see.
+                const fitMode = doc?.fitMode === 'page' ? 'width' : 'page'
+                patchActive(
+                  fitMode === 'page' ? { fitMode, zoomIndex: zoomSteps.indexOf(1) } : { fitMode }
+                )
+              }}
               disabled={!doc}
               title={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
               aria-label={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
