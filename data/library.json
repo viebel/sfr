@@ -9,7 +9,8 @@
       "year": "1284 · Ms. hébr. 176",
       "kind": "manuscript",
       "dir": "rtl",
-      "pages": 488
+      "pages": 488,
+      "source": "manuscripts/אבן עזרא על התורה.pdf"
     },
     {
       "id": "hakhmoni-donolo",
@@ -19,7 +20,8 @@
       "year": "",
       "kind": "book",
       "dir": "rtl",
-      "pages": 167
+      "pages": 167,
+      "source": "books/חכמוני דונולו.pdf"
     },
     {
       "id": "sefer-hamispar-ktav-yad",
@@ -29,7 +31,8 @@
       "year": "",
       "kind": "manuscript",
       "dir": "rtl",
-      "pages": 129
+      "pages": 129,
+      "source": "manuscripts/ספר המספר.pdf"
     },
     {
       "id": "sefer-hamispar-print",
@@ -39,7 +42,8 @@
       "year": "",
       "kind": "book",
       "dir": "rtl",
-      "pages": 207
+      "pages": 207,
+      "source": "books/ספר המספר.pdf"
     },
     {
       "id": "shaarei-tsedek",
@@ -49,7 +53,8 @@
       "year": "",
       "kind": "book",
       "dir": "rtl",
-      "pages": 189
+      "pages": 189,
+      "source": "books/שערי צדק וסולם עליה pdf.pdf"
     },
     {
       "id": "dictionaire-hebreu-philosophique",
@@ -59,7 +64,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 796
+      "pages": 796,
+      "source": "books/dictionaire hebreu philosophique.pdf"
     },
     {
       "id": "groupe-et-tonalites-musicales",
@@ -69,7 +75,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 23
+      "pages": 23,
+      "source": "books/groupe et tonalités musicales.pdf"
     },
     {
       "id": "on-yantras-in-early-saiva-tantras",
@@ -79,7 +86,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 32
+      "pages": 32,
+      "source": "manuscripts/On_yantras_in_Early_Saiva_Tantras.pdf"
     },
     {
       "id": "permutations-bernouilli",
@@ -89,7 +97,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 640
+      "pages": 640,
+      "source": "books/permutations Bernouilli.pdf"
     },
     {
       "id": "regular-polytopes-coxeter",
@@ -99,7 +108,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 278
+      "pages": 278,
+      "source": "books/Regular Polytopes - Coxeter.pdf"
     },
     {
       "id": "taocp-4a-knuth",
@@ -109,7 +119,8 @@
       "year": "",
       "kind": "book",
       "dir": "ltr",
-      "pages": 901
+      "pages": 901,
+      "source": "books/art of programming 4a - knuth.pdf"
     }
   ]
 }

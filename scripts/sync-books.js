@@ -19,7 +19,7 @@ const { execFileSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 
-const { addBook, readManifest, writeManifest, slug, has } = require('./add-book')
+const { addBook, readManifest, writeManifest, slug, has, sourceName } = require('./add-book')
 
 const root = path.join(__dirname, '..')
 const folders = [
@@ -55,11 +55,15 @@ function releaseAssets(tag) {
  * before this script existed are recognised by the last two.
  */
 function published(manifest, assets, file) {
+  const from = sourceName(file)
   const base = path.basename(file).normalize('NFC')
   const title = path.basename(file, path.extname(file)).normalize('NFC')
-  const entry = manifest.books.find(
-    b => b.id === slug(title) || b.source === base || b.title === title
-  )
+  // Exact first: books/ and manuscripts/ both hold a ספר המספר, and a title
+  // match would hand back whichever of the two the manifest happens to list
+  // first.
+  const entry =
+    manifest.books.find(b => b.source === from) ||
+    manifest.books.find(b => b.id === slug(title) || b.source === base || b.title === title)
   if (!entry) return null
   if (assets && !assets.has(entry.file)) return null // in the manifest, gone from the release
   return entry

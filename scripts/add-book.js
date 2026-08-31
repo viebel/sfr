@@ -149,6 +149,13 @@ function shrink(source, maxBytes, keep) {
   return best
 }
 
+// The name to remember a source file by: its path in the repo, or failing that
+// (a PDF picked up from anywhere else) its bare name.
+function sourceName(file) {
+  const relative = path.relative(root, file)
+  return (relative.startsWith('..') ? path.basename(file) : relative).normalize('NFC')
+}
+
 function pdfPages(file) {
   if (!has('gs')) return 0
   try {
@@ -248,9 +255,11 @@ function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun
   const entry = {
     id,
     file: asset,
-    // what it was called on disk, so a second pass over the folder recognises
-    // a book that was published under a hand-picked id
-    source: path.basename(source).normalize('NFC'),
+    // where it came from on disk, so a later sweep of the folders recognises a
+    // book that was published under a hand-picked id. Relative to the repo when
+    // it lives in it — books/ and manuscripts/ both hold a ספר המספר, and they
+    // are not the same book.
+    source: sourceName(source),
     title,
     author: meta.author || '',
     year: meta.year || '',
@@ -264,6 +273,6 @@ function addBook(manifest, filePath, meta = {}, { max = 20, keep = false, dryRun
   return entry
 }
 
-module.exports = { addBook, readManifest, writeManifest, slug, has }
+module.exports = { addBook, readManifest, writeManifest, slug, has, sourceName }
 
 if (require.main === module) main()
