@@ -3,17 +3,15 @@
  * yarn books
  *
  * Publishes everything sitting in books/ and manuscripts/ that is not in the
- * library yet: compresses what is too heavy, uploads it to the GitHub release,
- * and writes its line in data/library.json. Both folders are git-ignored — they
- * are the desk, the release is the shelf.
+ * library yet: uploads it to the GitHub release as it is, and writes its line
+ * in data/library.json. Both folders are git-ignored — they are the desk, the
+ * release is the shelf.
  *
  * The folder decides the shelf: books/ holds printed books, manuscripts/ holds
  * manuscripts.
  *
  * Options:
  *   --force     publish again even what is already there
- *   --max 40    megabytes above which a file is compressed (default: 20)
- *   --as-is     never compress, whatever a file weighs
  *   --dry-run   say what would happen, upload nothing
  */
 const { execFileSync } = require('child_process')
@@ -74,9 +72,6 @@ function main() {
   const argv = process.argv.slice(2)
   const force = argv.includes('--force')
   const dryRun = argv.includes('--dry-run')
-  const maxIndex = argv.indexOf('--max')
-  const asIs = argv.includes('--as-is') || argv.includes('--no-compress')
-  const max = asIs ? Infinity : maxIndex >= 0 ? parseFloat(argv[maxIndex + 1]) : 20
 
   if (!has('gh')) {
     console.error('gh is required to upload to the release (brew install gh)')
@@ -105,7 +100,7 @@ function main() {
       skipped.push(`${path.relative(root, file)} → ${already.id}`)
       continue
     }
-    if (addBook(manifest, file, { kind }, { max, dryRun })) added++
+    if (addBook(manifest, file, { kind }, { dryRun })) added++
   }
 
   if (skipped.length) {

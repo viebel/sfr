@@ -41,24 +41,16 @@ n'importe où, avec ses métadonnées :
 yarn book mon-livre.pdf
 ```
 
-La commande compresse le fichier s'il dépasse 20 Mo (ghostscript, par passes de
-plus en plus serrées, en gardant l'original si aucune n'y gagne), le téléverse
-sous un nom ascii dérivé du titre, et écrit sa ligne dans `data/library.json` —
-qu'il reste à commiter. Options utiles :
+La commande téléverse le fichier tel quel, sous un nom ascii dérivé du titre, et
+écrit sa ligne dans `data/library.json` — qu'il reste à commiter. Un asset de
+release accepte 2 Go, donc rien n'est retouché ; un scan trop lourd se compresse
+à la main avant d'être déposé. Options utiles :
 
 ```bash
 yarn book --title "ספר יצירה" --author "…" --kind manuscript --dir rtl --id yetsira mon-scan.pdf
 ```
 
-`--max 40` relève le seuil, `--as-is` désactive complètement la compression,
-`--dry-run` montre ce qui se passerait, `--keep` garde le fichier compressé à
-côté de l'original.
-
-La compression n'est obligatoire nulle part : un asset de release accepte 2 Go.
-Elle n'existe que pour le temps d'ouverture, puisque chaque lecture passe par la
-fonction edge qui relaie le fichier. Elle ne mord d'ailleurs que sur les scans —
-elle réencode les images en JPEG et plafonne leur résolution — et un PDF de
-texte en ressort plus lourd, auquel cas l'original est envoyé tel quel.
+`--dry-run` montre ce qui se passerait sans rien envoyer.
 
 Un asset de release ne renvoie aucun en-tête CORS : le navigateur ne peut pas le
 lire directement, c'est [`pages/api/book/[id].js`](pages/api/book/[id].js) qui le

@@ -33,5 +33,4 @@ description: Language and shape of the command-line tooling in scripts/ for the 
 - The folder decides the shelf: `books/` → `kind: 'book'`, `manuscripts/` → `kind: 'manuscript'`.
 - Assets are named after an ascii id derived from the title (Hebrew is transliterated), because the name has to survive a URL.
 - A file already published is recognised by its derived id, by the `source` file name recorded in the manifest, or by its title — so a book uploaded by hand under a chosen id is never republished under a transliteration.
-- Compression is by passes that tighten until the file fits the target; if no pass beats the original, the original is uploaded. A text PDF usually comes back heavier — that is the signal to leave it alone.
-- Nothing forces it: a release asset may weigh up to 2 GB, and the 20 MB default is about how long a book takes to open through the proxy, not about a limit. `--as-is` turns it off, `--max` moves the line.
+- Files go up untouched. A release asset may weigh up to 2 GB, so nothing has to be shrunk to fit; a scan too heavy to open comfortably is compressed by hand before it is dropped in the folder. The scripts depend on `gh` alone.
