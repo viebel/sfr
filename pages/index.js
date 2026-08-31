@@ -1,6 +1,7 @@
 import Head from 'next/head'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
+import AppNav from '../components/AppNav'
+import TemurotPolygon from '../components/TemurotPolygon'
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { calculateGematria } from '../utils/gematria'
 import { generateHebrewNumbers, getHebrewNumberName } from '../utils/hebrewNumbers'
@@ -8,6 +9,64 @@ import { analyzeStory, buildLegend, edgePunctuation } from '../utils/storyAnalys
 
 // useLayoutEffect on the client, useEffect on the server (avoids SSR warning)
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+// The two letter permutations of the תמורות panel, each a full mapping of the
+// alphabet: א״ת ב״ש mirrors it (א↔ת, ב↔ש …), כוז״ו shifts it by one (א→ב).
+const HEBREW_ALPHABET = [
+  'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט',
+  'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ',
+  'ק', 'ר', 'ש', 'ת'
+]
+
+const FINAL_TO_REGULAR = { 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' }
+
+const temurahTable = (to) => HEBREW_ALPHABET.map((from, index) => ({ from, to: to(index) }))
+
+const TEMUROT = [
+  {
+    id: 'atbash',
+    label: 'א״ת ב״ש',
+    arrow: '↔',
+    table: temurahTable((i) => HEBREW_ALPHABET[HEBREW_ALPHABET.length - 1 - i])
+  },
+  {
+    id: 'kuzoo',
+    label: 'כוז״ו',
+    arrow: '←',
+    table: temurahTable((i) => HEBREW_ALPHABET[(i + 1) % HEBREW_ALPHABET.length])
+  }
+]
+
+// A final letter is permuted as the regular letter it stands for; anything that
+// is not a Hebrew letter — a space, a mark, a digit — is left as it is.
+function applyTemurah(temurah, text) {
+  const map = new Map(temurah.table.map(({ from, to }) => [from, to]))
+  return text
+    .split('')
+    .map((char) => map.get(FINAL_TO_REGULAR[char] || char) || char)
+    .join('')
+}
+
+/*
+ * The state of the polygon screen, kept in the query string like the rest of
+ * the page so that a תמורה of a word can be linked to. The chosen תמורה travels
+ * under its own name — C3 for the rotation by three, R7 for the seventh fold —
+ * and an empty name means none is chosen.
+ */
+const POLYGON_DEFAULTS = { n: 22, axis: 0, rotation: 0, word: '', temurah: null, convex: false }
+
+const encodeTemurah = (temurah) => {
+  if (!temurah) return ''
+  return temurah.kind === 'rotation' ? `C${temurah.value}` : `R${temurah.value + 1}`
+}
+
+const decodeTemurah = (name) => {
+  const match = /^([CR])(\d+)$/.exec(name || '')
+  if (!match) return null
+  const value = parseInt(match[2], 10)
+  if (match[1] === 'C') return value >= 0 && value < 22 ? { kind: 'rotation', value } : null
+  return value >= 1 && value <= 22 ? { kind: 'reflection', value: value - 1 } : null
+}
 
 // Hebrew letters with their milouyim (full spellings)
 const hebrewLetters = [
@@ -47,7 +106,7 @@ hebrewLetters.forEach(item => {
 export default function Home() {
   const router = useRouter()
   const [input, setInput] = useState('')
-  const [activeTab, setActiveTab] = useState('calculator')
+  const [activeTab, setActiveTab] = useState('home')
   const [minNumber, setMinNumber] = useState(1)
   const [maxNumber, setMaxNumber] = useState(10)
   const [calculatedMin, setCalculatedMin] = useState(1)
@@ -58,8 +117,8 @@ export default function Home() {
   const [hideMilouyim, setHideMilouyim] = useState(false)
   const [numberInput, setNumberInput] = useState('')
   const [maxSteps, setMaxSteps] = useState(20)
-  const [atbashInput, setAtbashInput] = useState('')
-  const [kuzooInput, setKuzooInput] = useState('')
+  const [temurotInput, setTemurotInput] = useState('')
+  const [polygon, setPolygon] = useState(POLYGON_DEFAULTS)
   const [storyText, setStoryText] = useState('')
   const [storyNumbers, setStoryNumbers] = useState([''])
   const [showStoryEditor, setShowStoryEditor] = useState(true)
@@ -76,8 +135,7 @@ export default function Home() {
   const calculatorInputs = useMemo(() => input.split('\n'), [input])
   const calculatorInputRef = useRef(null)
   const numberInputRef = useRef(null)
-  const atbashInputRef = useRef(null)
-  const kuzooInputRef = useRef(null)
+  const polygonWordRef = useRef(null)
   const storyInputRef = useRef(null)
   const storyOutputRef = useRef(null)
   const matchesListRef = useRef(null)
@@ -132,8 +190,11 @@ export default function Home() {
       return fallback
     }
 
-    const nextActiveTab = getString('tab', activeTab)
-    const allowedTabs = new Set(['calculator', 'numbers', 'letters', 'number', 'atbash', 'kuzoo', 'story'])
+    // א״ת ב״ש and כוז״ו used to be panels of their own, and so did מספרים;
+    // links to any of them now land on the panel that took them in.
+    const legacyTabs = { atbash: 'temurot', kuzoo: 'temurot', numbers: 'number' }
+    const nextActiveTab = legacyTabs[getString('tab', activeTab)] || getString('tab', activeTab)
+    const allowedTabs = new Set(['home', 'calculator', 'temurot', 'number', 'letters', 'story'])
     if (allowedTabs.has(nextActiveTab)) setActiveTab(nextActiveTab)
 
     setInput(getString('input', input))
@@ -148,8 +209,18 @@ export default function Home() {
     setShowGematriaTable(getBool('gtable', showGematriaTable))
     setNumberInput(getString('numberInput', numberInput))
     setMaxSteps(getInt('maxSteps', maxSteps))
-    setAtbashInput(getString('atbashInput', atbashInput))
-    setKuzooInput(getString('kuzooInput', kuzooInput))
+    setTemurotInput(
+      getString('temurotInput', getString('atbashInput', getString('kuzooInput', temurotInput)))
+    )
+    const polygonN = Math.min(22, Math.max(3, getInt('pn', polygon.n)))
+    setPolygon({
+      n: polygonN,
+      axis: Math.min(Math.max(0, getInt('px', polygon.axis)), polygonN - 1),
+      rotation: Math.max(1 - polygonN, Math.min(polygonN - 1, getInt('pr', polygon.rotation))),
+      word: getString('pw', polygon.word),
+      temurah: decodeTemurah(getString('pt', '')),
+      convex: getBool('pc', polygon.convex)
+    })
     setStoryText(getString('story', storyText))
     const storyNumbersRaw = getString('storyNumbers', '')
     if (storyNumbersRaw) {
@@ -174,10 +245,8 @@ export default function Home() {
           calculatorInputRef.current.focus({ preventScroll: true })
         } else if (activeTab === 'number' && numberInputRef.current) {
           numberInputRef.current.focus({ preventScroll: true })
-        } else if (activeTab === 'atbash' && atbashInputRef.current) {
-          atbashInputRef.current.focus({ preventScroll: true })
-        } else if (activeTab === 'kuzoo' && kuzooInputRef.current) {
-          kuzooInputRef.current.focus({ preventScroll: true })
+        } else if (activeTab === 'temurot' && polygonWordRef.current) {
+          polygonWordRef.current.focus({ preventScroll: true })
         } else if (activeTab === 'story' && storyInputRef.current) {
           storyInputRef.current.focus({ preventScroll: true })
         }
@@ -205,8 +274,13 @@ export default function Home() {
       gtable: showGematriaTable ? '1' : '0',
       numberInput: numberInput || '',
       maxSteps: String(maxSteps),
-      atbashInput: atbashInput || '',
-      kuzooInput: kuzooInput || '',
+      temurotInput: temurotInput || '',
+      pn: String(polygon.n),
+      px: String(polygon.axis),
+      pr: String(polygon.rotation),
+      pw: polygon.word || '',
+      pt: encodeTemurah(polygon.temurah),
+      pc: polygon.convex ? '1' : '0',
       story: storyText || '',
       storyNumbers: storyNumbers.map((s) => String(s).trim()).filter(Boolean).join(','),
       storyEditor: showStoryEditor ? '1' : '0',
@@ -247,8 +321,8 @@ export default function Home() {
     showGematriaTable,
     numberInput,
     maxSteps,
-    atbashInput,
-    kuzooInput,
+    temurotInput,
+    polygon,
     storyText,
     storyNumbers,
     showStoryEditor,
@@ -258,115 +332,10 @@ export default function Home() {
     invalidatedMatches
   ])
 
-  // Atbash conversion function
-  const convertAtbash = (text) => {
-    // Map final letters to regular letters first
-    const finalToRegular = {
-      'ך': 'כ',
-      'ם': 'מ',
-      'ן': 'נ',
-      'ף': 'פ',
-      'ץ': 'צ'
-    }
-    
-    // Atbash mapping: א↔ת, ב↔ש, ג↔ר, ד↔ק, ה↔צ, ו↔פ, ז↔ע, ח↔ס, ט↔נ, י↔מ, כ↔ל
-    const atbashMap = {
-      'א': 'ת', 'ב': 'ש', 'ג': 'ר', 'ד': 'ק', 'ה': 'צ', 'ו': 'פ', 'ז': 'ע', 'ח': 'ס', 'ט': 'נ',
-      'י': 'מ', 'כ': 'ל', 'ל': 'כ', 'מ': 'י', 'נ': 'ט', 'ס': 'ח', 'ע': 'ז', 'פ': 'ו', 'צ': 'ה',
-      'ק': 'ד', 'ר': 'ג', 'ש': 'ב', 'ת': 'א'
-    }
-    
-    return text.split('').map(char => {
-      // Convert final letter to regular letter first
-      const regularChar = finalToRegular[char] || char
-      // Apply Atbash conversion
-      return atbashMap[regularChar] || char
-    }).join('')
-  }
-
-  const atbashOutput = useMemo(() => {
-    return convertAtbash(atbashInput)
-  }, [atbashInput])
-
-  // Kuzu (shift-by-one) conversion function
-  const convertKuzoo = (text) => {
-    const hebrewAlphabet = [
-      'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט',
-      'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ',
-      'ק', 'ר', 'ש', 'ת'
-    ]
-    const finalToRegular = {
-      'ך': 'כ',
-      'ם': 'מ',
-      'ן': 'נ',
-      'ף': 'פ',
-      'ץ': 'צ'
-    }
-
-    return text.split('').map(char => {
-      const regularChar = finalToRegular[char] || char
-      const index = hebrewAlphabet.indexOf(regularChar)
-      if (index === -1) return char
-      const nextIndex = (index + 1) % hebrewAlphabet.length
-      return hebrewAlphabet[nextIndex]
-    }).join('')
-  }
-
-  const kuzooOutput = useMemo(() => {
-    return convertKuzoo(kuzooInput)
-  }, [kuzooInput])
-
-  // Atbash correspondence table data
-  const atbashTable = [
-    { letter: 'א', atbash: 'ת' },
-    { letter: 'ב', atbash: 'ש' },
-    { letter: 'ג', atbash: 'ר' },
-    { letter: 'ד', atbash: 'ק' },
-    { letter: 'ה', atbash: 'צ' },
-    { letter: 'ו', atbash: 'פ' },
-    { letter: 'ז', atbash: 'ע' },
-    { letter: 'ח', atbash: 'ס' },
-    { letter: 'ט', atbash: 'נ' },
-    { letter: 'י', atbash: 'מ' },
-    { letter: 'כ', atbash: 'ל' },
-    { letter: 'ל', atbash: 'כ' },
-    { letter: 'מ', atbash: 'י' },
-    { letter: 'נ', atbash: 'ט' },
-    { letter: 'ס', atbash: 'ח' },
-    { letter: 'ע', atbash: 'ז' },
-    { letter: 'פ', atbash: 'ו' },
-    { letter: 'צ', atbash: 'ה' },
-    { letter: 'ק', atbash: 'ד' },
-    { letter: 'ר', atbash: 'ג' },
-    { letter: 'ש', atbash: 'ב' },
-    { letter: 'ת', atbash: 'א' }
-  ]
-
-  // Kuzu (shift-by-one) correspondence table data
-  const kuzooTable = [
-    { letter: 'א', kuzu: 'ב' },
-    { letter: 'ב', kuzu: 'ג' },
-    { letter: 'ג', kuzu: 'ד' },
-    { letter: 'ד', kuzu: 'ה' },
-    { letter: 'ה', kuzu: 'ו' },
-    { letter: 'ו', kuzu: 'ז' },
-    { letter: 'ז', kuzu: 'ח' },
-    { letter: 'ח', kuzu: 'ט' },
-    { letter: 'ט', kuzu: 'י' },
-    { letter: 'י', kuzu: 'כ' },
-    { letter: 'כ', kuzu: 'ל' },
-    { letter: 'ל', kuzu: 'מ' },
-    { letter: 'מ', kuzu: 'נ' },
-    { letter: 'נ', kuzu: 'ס' },
-    { letter: 'ס', kuzu: 'ע' },
-    { letter: 'ע', kuzu: 'פ' },
-    { letter: 'פ', kuzu: 'צ' },
-    { letter: 'צ', kuzu: 'ק' },
-    { letter: 'ק', kuzu: 'ר' },
-    { letter: 'ר', kuzu: 'ש' },
-    { letter: 'ש', kuzu: 'ת' },
-    { letter: 'ת', kuzu: 'א' }
-  ]
+  const temurotOutputs = useMemo(
+    () => Object.fromEntries(TEMUROT.map((t) => [t.id, applyTemurah(t, temurotInput)])),
+    [temurotInput]
+  )
 
   // Gematria correspondence table data
   const gematriaTable = [
@@ -795,69 +764,19 @@ export default function Home() {
         <title>ס.פ.ר</title>
         <meta name="description" content="ס.פ.ר" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
+      <AppNav current={activeTab} onSelectTab={setActiveTab} />
       <main className={`container${activeTab === 'story' ? ' container-fill' : ''}`}>
-        <h1 className="title">ס.פ.ר</h1>
-        <div className="subtitle">
-          <div>בשלשה ספרים</div>
-          <div>בספר וספר וספור</div>
-        </div>
-        
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'calculator' ? 'active' : ''}`}
-            onClick={() => setActiveTab('calculator')}
-          >
-            גימטריא
-          </button>
-          <button
-            className={`tab ${activeTab === 'atbash' ? 'active' : ''}`}
-            onClick={() => setActiveTab('atbash')}
-          >
-            <span className="tab-label-nowrap">א״ת ב״ש</span>
-          </button>
-          <button
-            className={`tab ${activeTab === 'kuzoo' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kuzoo')}
-          >
-            כוז״ו
-          </button>
-          <button
-            className={`tab ${activeTab === 'numbers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('numbers')}
-          >
-            מספרים
-          </button>
-          <button
-            className={`tab ${activeTab === 'letters' ? 'active' : ''}`}
-            onClick={() => setActiveTab('letters')}
-          >
-            אותיות
-          </button>
-          <button
-            className={`tab ${activeTab === 'number' ? 'active' : ''}`}
-            onClick={() => setActiveTab('number')}
-          >
-            מספר
-          </button>
-          <button
-            className={`tab ${activeTab === 'story' ? 'active' : ''}`}
-            onClick={() => setActiveTab('story')}
-          >
-            ספור
-          </button>
-          {/* Not a tab of this page but a route of its own — the PDF reader */}
-          <Link href="/library" className="tab tab-link">
-            ספר
-          </Link>
-        </div>
+        {/* The verse the app is named after has a screen of its own; the
+            working screens start straight in on their own matter. */}
+        {activeTab === 'home' && (
+          <div className="home">
+            <h1 className="subtitle">
+              <div>בשלשה ספרים</div>
+              <div>בסֵפֶר וסְפָר וסִפֻּר</div>
+            </h1>
+          </div>
+        )}
 
         {activeTab === 'calculator' && (
           <div className="calculator">
@@ -961,97 +880,6 @@ export default function Home() {
               >
                 +
               </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'numbers' && (
-          <div className="numbers-section">
-            <div className="range-controls">
-              <div className="range-input-group">
-                <label htmlFor="min-number">מ:</label>
-                <input
-                  id="min-number"
-                  type="number"
-                  value={minNumber}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val)) {
-                      setMinNumber(val)
-                    } else if (e.target.value === '' || e.target.value === '-') {
-                      // Allow empty or minus sign while typing
-                      return
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val >= maxNumber) {
-                      setMinNumber(maxNumber - 1)
-                    }
-                  }}
-                  className="range-input"
-                  dir="ltr"
-                />
-              </div>
-              <div className="range-input-group">
-                <label htmlFor="max-number">עד:</label>
-                <input
-                  id="max-number"
-                  type="number"
-                  value={maxNumber}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val)) {
-                      setMaxNumber(val)
-                    } else if (e.target.value === '' || e.target.value === '-') {
-                      // Allow empty or minus sign while typing
-                      return
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val <= minNumber) {
-                      setMaxNumber(minNumber + 1)
-                    }
-                  }}
-                  className="range-input"
-                  dir="ltr"
-                />
-              </div>
-              <button onClick={handleCalculate} className="calculate-button">
-                חשב
-              </button>
-              <button 
-                onClick={() => setShowFixedPoints(!showFixedPoints)} 
-                className={`fixed-point-button ${showFixedPoints ? 'active' : ''}`}
-              >
-                נקודת שבת
-              </button>
-            </div>
-            <div className="numbers-list">
-              {hebrewNumbers.map((item) => {
-                const matchesGematria = item.number === item.masculineGematria || item.number === item.feminineGematria
-                return (
-                  <div 
-                    key={item.number} 
-                    className={`number-item ${matchesGematria ? 'matches-gematria' : ''}`}
-                  >
-                    <div className="number-value">{item.number}</div>
-                    <div className="number-row">
-                      <div className="number-name">
-                        {item.masculine}
-                      </div>
-                      <div className="number-gematria">{item.masculineGematria}</div>
-                    </div>
-                    <div className="number-row">
-                      <div className="number-name feminine">
-                        {item.feminine}
-                      </div>
-                      <div className="number-gematria">{item.feminineGematria}</div>
-                    </div>
-                  </div>
-                )
-              })}
             </div>
           </div>
         )}
@@ -1235,124 +1063,200 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            {(masculineChain.length > 0 || feminineChain.length > 0) && (
-              <div className="number-chain-columns">
-                <div className="number-chain-column">
-                  <div className="number-chain-column-header">זכר</div>
-                  <div className="number-chain">
-                    {masculineChain.map((step, index) => {
-                      const firstOccurrenceIndex = findFirstOccurrence(masculineChain, index, step.number)
-                      const isRepeated = firstOccurrenceIndex !== null
-                      return (
-                        <div 
-                          key={index} 
-                          className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
-                        >
-                          <div className="number-chain-step-number">
-                            {index + 1}
-                            {isRepeated && (
-                              <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
-                            )}
-                          </div>
-                          <div className="number-chain-number">{step.number}</div>
-                          <div className="number-chain-name">{step.name}</div>
-                          <div className="number-chain-gematria">{step.gematria}</div>
-                        </div>
-                      )
-                    })}
+            <div className="number-halves">
+              <div className="number-half">
+                {(masculineChain.length > 0 || feminineChain.length > 0) && (
+                  <div className="number-chain-columns">
+                    <div className="number-chain-column">
+                      <div className="number-chain-column-header">זכר</div>
+                      <div className="number-chain">
+                        {masculineChain.map((step, index) => {
+                          const firstOccurrenceIndex = findFirstOccurrence(masculineChain, index, step.number)
+                          const isRepeated = firstOccurrenceIndex !== null
+                          return (
+                            <div 
+                              key={index} 
+                              className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
+                            >
+                              <div className="number-chain-step-number">
+                                {index + 1}
+                                {isRepeated && (
+                                  <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
+                                )}
+                              </div>
+                              <div className="number-chain-number">{step.number}</div>
+                              <div className="number-chain-name">{step.name}</div>
+                              <div className="number-chain-gematria">{step.gematria}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="number-chain-column">
+                      <div className="number-chain-column-header">נקבה</div>
+                      <div className="number-chain">
+                        {feminineChain.map((step, index) => {
+                          const firstOccurrenceIndex = findFirstOccurrence(feminineChain, index, step.number)
+                          const isRepeated = firstOccurrenceIndex !== null
+                          return (
+                            <div 
+                              key={index} 
+                              className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
+                            >
+                              <div className="number-chain-step-number">
+                                {index + 1}
+                                {isRepeated && (
+                                  <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
+                                )}
+                              </div>
+                              <div className="number-chain-number">{step.number}</div>
+                              <div className="number-chain-name">{step.name}</div>
+                              <div className="number-chain-gematria">{step.gematria}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
+                )}
+              </div>
+
+              <div className="number-half">
+                <div className="range-controls">
+                  <div className="range-input-group">
+                    <label htmlFor="min-number">מ:</label>
+                    <input
+                      id="min-number"
+                      type="number"
+                      value={minNumber}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val)) {
+                          setMinNumber(val)
+                        } else if (e.target.value === '' || e.target.value === '-') {
+                          // Allow empty or minus sign while typing
+                          return
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val) && val >= maxNumber) {
+                          setMinNumber(maxNumber - 1)
+                        }
+                      }}
+                      className="range-input"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="range-input-group">
+                    <label htmlFor="max-number">עד:</label>
+                    <input
+                      id="max-number"
+                      type="number"
+                      value={maxNumber}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val)) {
+                          setMaxNumber(val)
+                        } else if (e.target.value === '' || e.target.value === '-') {
+                          // Allow empty or minus sign while typing
+                          return
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val) && val <= minNumber) {
+                          setMaxNumber(minNumber + 1)
+                        }
+                      }}
+                      className="range-input"
+                      dir="ltr"
+                    />
+                  </div>
+                  <button onClick={handleCalculate} className="calculate-button">
+                    חשב
+                  </button>
+                  <button 
+                    onClick={() => setShowFixedPoints(!showFixedPoints)} 
+                    className={`fixed-point-button ${showFixedPoints ? 'active' : ''}`}
+                  >
+                    נקודת שבת
+                  </button>
                 </div>
-                <div className="number-chain-column">
-                  <div className="number-chain-column-header">נקבה</div>
-                  <div className="number-chain">
-                    {feminineChain.map((step, index) => {
-                      const firstOccurrenceIndex = findFirstOccurrence(feminineChain, index, step.number)
-                      const isRepeated = firstOccurrenceIndex !== null
-                      return (
-                        <div 
-                          key={index} 
-                          className={`number-chain-step ${isRepeated ? 'repeated-value' : ''}`}
-                        >
-                          <div className="number-chain-step-number">
-                            {index + 1}
-                            {isRepeated && (
-                              <span className="number-chain-step-original"> ({firstOccurrenceIndex})</span>
-                            )}
+                <div className="numbers-list">
+                  {hebrewNumbers.map((item) => {
+                    const matchesGematria = item.number === item.masculineGematria || item.number === item.feminineGematria
+                    return (
+                      <div 
+                        key={item.number} 
+                        className={`number-item ${matchesGematria ? 'matches-gematria' : ''}`}
+                      >
+                        <div className="number-value">{item.number}</div>
+                        <div className="number-row">
+                          <div className="number-name">
+                            {item.masculine}
                           </div>
-                          <div className="number-chain-number">{step.number}</div>
-                          <div className="number-chain-name">{step.name}</div>
-                          <div className="number-chain-gematria">{step.gematria}</div>
+                          <div className="number-gematria">{item.masculineGematria}</div>
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div className="number-row">
+                          <div className="number-name feminine">
+                            {item.feminine}
+                          </div>
+                          <div className="number-gematria">{item.feminineGematria}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )}
 
-        {activeTab === 'atbash' && (
-          <div className="atbash-section">
-            <div className="atbash-correspondence-table">
-              <div className="atbash-table">
-                {atbashTable.map((item, index) => (
-                  <div key={index} className="atbash-table-row">
-                    <div className="atbash-table-letter">{item.letter}</div>
-                    <div className="atbash-table-arrow">↔</div>
-                    <div className="atbash-table-letter">{item.atbash}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {activeTab === 'temurot' && (
+          <div className="temurot-section">
+            <TemurotPolygon
+              inputRef={polygonWordRef}
+              value={polygon}
+              onChange={(patch) => setPolygon((current) => ({ ...current, ...patch }))}
+            />
+
             <div className="atbash-input-control">
               <input
-                ref={atbashInputRef}
-                id="atbash-input"
+                id="temurot-input"
                 type="text"
-                value={atbashInput}
-                onChange={(e) => setAtbashInput(e.target.value)}
+                value={temurotInput}
+                onChange={(e) => setTemurotInput(e.target.value)}
                 className="atbash-input"
                 dir="rtl"
               />
             </div>
-            {atbashOutput && (
-              <div className="atbash-result">
-                <div className="atbash-result-value">{atbashOutput}</div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'kuzoo' && (
-          <div className="atbash-section">
-            <div className="atbash-correspondence-table">
-              <div className="atbash-table">
-                {kuzooTable.map((item, index) => (
-                  <div key={index} className="atbash-table-row">
-                    <div className="atbash-table-letter">{item.letter}</div>
-                    <div className="atbash-table-arrow">←</div>
-                    <div className="atbash-table-letter">{item.kuzu}</div>
+            <div className="temurot-grid">
+              {TEMUROT.map((temurah) => (
+                <section className="temurot-card" key={temurah.id}>
+                  <h2 className="temurot-card-title">{temurah.label}</h2>
+
+                  {temurotInput && (
+                    <div className="atbash-result">
+                      <div className="atbash-result-value">{temurotOutputs[temurah.id]}</div>
+                    </div>
+                  )}
+
+                  <div className="atbash-correspondence-table">
+                    <div className="atbash-table">
+                      {temurah.table.map((item, index) => (
+                        <div key={index} className="atbash-table-row">
+                          <div className="atbash-table-letter">{item.from}</div>
+                          <div className="atbash-table-arrow">{temurah.arrow}</div>
+                          <div className="atbash-table-letter">{item.to}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                </section>
+              ))}
             </div>
-            <div className="atbash-input-control">
-              <input
-                ref={kuzooInputRef}
-                id="kuzoo-input"
-                type="text"
-                value={kuzooInput}
-                onChange={(e) => setKuzooInput(e.target.value)}
-                className="atbash-input"
-                dir="rtl"
-              />
-            </div>
-            {kuzooOutput && (
-              <div className="atbash-result">
-                <div className="atbash-result-value">{kuzooOutput}</div>
-              </div>
-            )}
           </div>
         )}
 

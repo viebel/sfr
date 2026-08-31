@@ -20,8 +20,6 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const { balancePages } = require('./balance-pages')
-
 const root = path.join(__dirname, '..')
 const manifestPath = path.join(root, 'data', 'library.json')
 const MB = 1024 * 1024
@@ -211,22 +209,6 @@ function addBook(manifest, filePath, meta = {}, { dryRun = false } = {}) {
   const upload = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sfr-asset-')), asset)
   fs.copyFileSync(source, upload)
 
-  // Ghostscript and most scanners write a flat page tree, and the reader then
-  // has to fetch the whole book before it can draw the first page. Grouping the
-  // pages is what lets it read only what it shows; it is done on the copy, so
-  // the file on the desk is left byte for byte as it was.
-  const tree = balancePages(upload, upload)
-  const lazy = tree.balanced || tree.skipped === 'already grouped' || tree.skipped === 'already shallow'
-  if (tree.balanced) {
-    console.log(`  ✓ ${tree.pages} pages grouped ${tree.groups} ways — opens without reading it whole`)
-  } else if (tree.skipped === 'already grouped' || tree.skipped === 'already shallow') {
-    console.log(`  · page tree already groups its pages`)
-  } else {
-    console.warn(
-      `  ⚠ page tree left flat (${tree.skipped}) — the reader will fetch the whole file to open it`
-    )
-  }
-
   if (dryRun) {
     console.log(`  · (dry run) gh release upload ${tag} ${asset}`)
   } else {
@@ -246,11 +228,7 @@ function addBook(manifest, filePath, meta = {}, { dryRun = false } = {}) {
     author: meta.author || '',
     year: meta.year || '',
     kind: meta.kind === 'manuscript' ? 'manuscript' : 'book',
-    dir: meta.dir || guessDir(title),
-    // Whether the asset uploaded just now can be read a page at a time. A book
-    // published before its page tree was grouped has no flag, and the reader
-    // goes on downloading it whole — until it is uploaded again.
-    lazy
+    dir: meta.dir || guessDir(title)
   }
   const existing = manifest.books.findIndex(b => b.id === id)
   if (existing >= 0) manifest.books[existing] = { ...manifest.books[existing], ...entry }

@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import Link from 'next/link'
+import AppNav from '../components/AppNav'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sources } from '../data/sources'
 import { markReferences, parseMarked, tokenizeMarked } from '../utils/sourceText'
@@ -171,18 +171,22 @@ export default function Mekorot() {
   const tipRef = useRef(null)
   const source = sources.find((s) => s.id === activeId) || sources[0]
 
-  // Deep link: /mekorot?src=... — read straight from the URL, this is a static page
+  // Deep link: /mekorot?src=... — read straight from the URL, this is a static
+  // page. Read once, on mount, and nowhere else.
   useEffect(() => {
     const wanted = new URLSearchParams(window.location.search).get('src')
     if (wanted && sources.some((s) => s.id === wanted)) setActiveId(wanted)
   }, [])
 
-  useEffect(() => {
+  // The URL is written only when a source is picked from the list. Writing it
+  // from an effect on activeId instead raced the read above, which then read
+  // back the id it had just been asked to replace.
+  const chooseSource = (id) => {
+    setActiveId(id)
     const params = new URLSearchParams(window.location.search)
-    if (params.get('src') === activeId) return
-    params.set('src', activeId)
+    params.set('src', id)
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-  }, [activeId])
+  }
 
   // Every block is analyzed on its own: a match can never cross a paragraph, so
   // block by block gives exactly the matches the whole text gives.
@@ -269,30 +273,10 @@ export default function Mekorot() {
         <title>ס.פ.ר — מקורות</title>
         <meta name="description" content="מקורות על הלשון, האותיות והמספר" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@300;400;500;700&display=swap"
-          rel="stylesheet"
-        />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="src-root">
-        <div className="pdfr-toolbar">
-          <div className="pdfr-toolbar-group">
-            <Link href="/" className="pdfr-btn" title="ס.פ.ר" aria-label="חזרה לס.פ.ר">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3.5 11 12 3.5l8.5 7.5" />
-                <path d="M5.8 9.9V20h12.4V9.9" />
-              </svg>
-            </Link>
-            <nav className="src-subtabs">
-              <Link href="/library" className="src-subtab">ספר</Link>
-              <Link href="/mekorot" className="src-subtab active" aria-current="page">מקורות</Link>
-            </nav>
-          </div>
-        </div>
+        <AppNav current="library" />
 
         <div className="src-body">
           <nav className="src-list" aria-label="מקורות">
@@ -301,7 +285,7 @@ export default function Mekorot() {
                 type="button"
                 key={item.id}
                 className={`src-list-item${item.id === source.id ? ' active' : ''}`}
-                onClick={() => setActiveId(item.id)}
+                onClick={() => chooseSource(item.id)}
                 aria-current={item.id === source.id ? 'true' : undefined}
               >
                 <span className="src-list-title">{item.nav}</span>

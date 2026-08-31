@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.88 -0.88 1.76 1.76">
+  <!--
+    The mark of ס.פ.ר: a polygon tower, n = 6, levels 2 and 3 — six pentagons
+    inside an hexagon that is built but not drawn, and five squares inside each
+    pentagon. The same construction as components/TowerMark.js, which carries
+    the geometry and where it comes from; this file is that drawing written out
+    once, cropped tight and inked heavier than the menu draws it, because a tab
+    renders it at a fraction of the size.
+  -->
+  <style>
+    polygon { fill: none; stroke: #111; stroke-linejoin: round; }
+    @media (prefers-color-scheme: dark) { polygon { stroke: #f2f2f2; } }
+  </style>
+  <polygon points="0.3119,-0.1801 0.0000,-0.3601 0.0749,-0.7124 0.4330,-0.7500 0.5795,-0.4210" stroke-width="0.075"/>
+  <polygon points="0.1658,-0.4339 0.2929,-0.3605 0.2195,-0.2334 0.0924,-0.3068" stroke-width="0.05"/>
+  <polygon points="0.1963,-0.5775 0.1658,-0.4339 0.0222,-0.4644 0.0527,-0.6080" stroke-width="0.05"/>
+  <polygon points="0.3423,-0.5929 0.1963,-0.5775 0.1809,-0.7235 0.3269,-0.7389" stroke-width="0.05"/>
+  <polygon points="0.4020,-0.4587 0.3423,-0.5929 0.4764,-0.6526 0.5361,-0.5185" stroke-width="0.05"/>
+  <polygon points="0.2929,-0.3605 0.4020,-0.4587 0.5002,-0.3497 0.3911,-0.2514" stroke-width="0.05"/>
+  <polygon points="0.3119,0.1801 0.3119,-0.1801 0.6544,-0.2913 0.8660,-0.0000 0.6544,0.2913" stroke-width="0.075"/>
+  <polygon points="0.4587,-0.0734 0.4587,0.0734 0.3119,0.0734 0.3119,-0.0734" stroke-width="0.05"/>
+  <polygon points="0.5983,-0.1188 0.4587,-0.0734 0.4133,-0.2130 0.5529,-0.2584" stroke-width="0.05"/>
+  <polygon points="0.6846,-0.0000 0.5983,-0.1188 0.7170,-0.2051 0.8033,-0.0863" stroke-width="0.05"/>
+  <polygon points="0.5983,0.1188 0.6846,-0.0000 0.8033,0.0863 0.7170,0.2051" stroke-width="0.05"/>
+  <polygon points="0.4587,0.0734 0.5983,0.1188 0.5529,0.2584 0.4133,0.2130" stroke-width="0.05"/>
+  <polygon points="0.0000,0.3601 0.3119,0.1801 0.5795,0.4210 0.4330,0.7500 0.0749,0.7124" stroke-width="0.075"/>
+  <polygon points="0.2929,0.3605 0.1658,0.4339 0.0924,0.3068 0.2195,0.2334" stroke-width="0.05"/>
+  <polygon points="0.4020,0.4587 0.2929,0.3605 0.3911,0.2514 0.5002,0.3497" stroke-width="0.05"/>
+  <polygon points="0.3423,0.5929 0.4020,0.4587 0.5361,0.5185 0.4764,0.6526" stroke-width="0.05"/>
+  <polygon points="0.1963,0.5775 0.3423,0.5929 0.3269,0.7389 0.1809,0.7235" stroke-width="0.05"/>
+  <polygon points="0.1658,0.4339 0.1963,0.5775 0.0527,0.6080 0.0222,0.4644" stroke-width="0.05"/>
+  <polygon points="-0.3119,0.1801 0.0000,0.3601 -0.0749,0.7124 -0.4330,0.7500 -0.5795,0.4210" stroke-width="0.075"/>
+  <polygon points="-0.1658,0.4339 -0.2929,0.3605 -0.2195,0.2334 -0.0924,0.3068" stroke-width="0.05"/>
+  <polygon points="-0.1963,0.5775 -0.1658,0.4339 -0.0222,0.4644 -0.0527,0.6080" stroke-width="0.05"/>
+  <polygon points="-0.3423,0.5929 -0.1963,0.5775 -0.1809,0.7235 -0.3269,0.7389" stroke-width="0.05"/>
+  <polygon points="-0.4020,0.4587 -0.3423,0.5929 -0.4764,0.6526 -0.5361,0.5185" stroke-width="0.05"/>
+  <polygon points="-0.2929,0.3605 -0.4020,0.4587 -0.5002,0.3497 -0.3911,0.2514" stroke-width="0.05"/>
+  <polygon points="-0.3119,-0.1801 -0.3119,0.1801 -0.6544,0.2913 -0.8660,0.0000 -0.6544,-0.2913" stroke-width="0.075"/>
+  <polygon points="-0.4587,0.0734 -0.4587,-0.0734 -0.3119,-0.0734 -0.3119,0.0734" stroke-width="0.05"/>
+  <polygon points="-0.5983,0.1188 -0.4587,0.0734 -0.4133,0.2130 -0.5529,0.2584" stroke-width="0.05"/>
+  <polygon points="-0.6846,0.0000 -0.5983,0.1188 -0.7170,0.2051 -0.8033,0.0863" stroke-width="0.05"/>
+  <polygon points="-0.5983,-0.1188 -0.6846,0.0000 -0.8033,-0.0863 -0.7170,-0.2051" stroke-width="0.05"/>
+  <polygon points="-0.4587,-0.0734 -0.5983,-0.1188 -0.5529,-0.2584 -0.4133,-0.2130" stroke-width="0.05"/>
+  <polygon points="-0.0000,-0.3601 -0.3119,-0.1801 -0.5795,-0.4210 -0.4330,-0.7500 -0.0749,-0.7124" stroke-width="0.075"/>
+  <polygon points="-0.2929,-0.3605 -0.1658,-0.4339 -0.0924,-0.3068 -0.2195,-0.2334" stroke-width="0.05"/>
+  <polygon points="-0.4020,-0.4587 -0.2929,-0.3605 -0.3911,-0.2514 -0.5002,-0.3497" stroke-width="0.05"/>
+  <polygon points="-0.3423,-0.5929 -0.4020,-0.4587 -0.5361,-0.5185 -0.4764,-0.6526" stroke-width="0.05"/>
+  <polygon points="-0.1963,-0.5775 -0.3423,-0.5929 -0.3269,-0.7389 -0.1809,-0.7235" stroke-width="0.05"/>
+  <polygon points="-0.1658,-0.4339 -0.1963,-0.5775 -0.0527,-0.6080 -0.0222,-0.4644" stroke-width="0.05"/>
+</svg>

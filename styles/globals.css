@@ -1,3 +1,8 @@
+:root {
+  --appnav-h: 4rem;
+  --subnav-h: 2.1rem;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -27,7 +32,7 @@ a {
 }
 
 .container {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--appnav-h) - var(--subnav-h));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -35,22 +40,24 @@ a {
   padding: 2rem;
 }
 
-.title {
-  font-size: 4rem;
-  font-weight: 700;
-  text-align: center;
-  margin: 0 0 2rem 0;
-  color: #000;
-  letter-spacing: 0.1em;
-  font-family: 'David Libre', serif;
+/* The name and its verse, alone on their screen, sitting where the eye lands
+   rather than at the very top of the page. */
+.home {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  padding-bottom: 8vh;
 }
 
 .subtitle {
   text-align: center;
-  margin: -1rem 0 2rem 0;
-  color: #333;
-  font-size: 1.75rem;
-  line-height: 1.6;
+  margin: 0;
+  color: #222;
+  font-size: 4.5rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
   font-family: 'David Libre', serif;
 }
 
@@ -76,10 +83,6 @@ a {
   font-family: inherit;
 }
 
-.tab-label-nowrap {
-  white-space: nowrap;
-}
-
 /* A tab that is a link to another page rather than a panel of this one */
 .tab-link {
   display: inline-flex;
@@ -95,6 +98,115 @@ a {
 .tab.active {
   color: #000;
   border-bottom-color: #000;
+  font-weight: 600;
+}
+
+/* The application menu, the same on every page: two thin rows pinned to the top
+   edge of the window — the three ספרים, and the screens of the open one. Both
+   heights are fixed so a page that fills the viewport can subtract them. */
+.appnav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.appnav-row {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  padding: 0 0.9rem;
+}
+
+.appnav-sfarim {
+  height: var(--appnav-h);
+  background: #fff;
+}
+
+/* The screens of the open ספר read as subordinate to it: a shade back, and set
+   a size down from the row above. */
+.appnav-screens {
+  height: var(--subnav-h);
+  align-items: center;
+  background: #fafbfc;
+  border-bottom: 1px solid #e6e8ea;
+}
+
+/* Only the nikud tells סֵפֶר, סְפָר and סִפֻּר apart, so they are set large, in
+   the book face, with room under the letters for the marks to be read. Both
+   class names are in the selector so it outweighs the compact row's own size,
+   which the sheet sets further down. */
+.tabs-compact .tab.tab-sefer {
+  font-family: 'David Libre', serif;
+  font-size: 2.4rem;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  padding: 0 1.1rem 0.35rem;
+}
+
+/* The mark leads back to the screen that holds nothing but the name. Set apart
+   from the three ספרים by a rule, so it reads as the mark of the app and not as
+   a fourth ספר. */
+.appnav-mark {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0 0.9rem 0 1.1rem;
+  color: #b4b8bc;
+  background: none;
+  border: none;
+  border-inline-end: 1px solid #e6e8ea;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.appnav-mark:hover,
+.appnav-mark.active {
+  color: #000;
+}
+
+.tower-mark {
+  display: block;
+}
+
+.subtabs {
+  display: flex;
+  gap: 0.1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.subtabs::-webkit-scrollbar {
+  display: none;
+}
+
+.subtab {
+  padding: 0.15rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #777;
+  font-family: inherit;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.subtab:hover {
+  color: #222;
+  background: #eef0f2;
+}
+
+.subtab.active {
+  color: #000;
+  background: #fff;
+  border: 1px solid #dfe2e6;
+  padding: calc(0.15rem - 1px) calc(0.7rem - 1px);
   font-weight: 600;
 }
 
@@ -372,14 +484,6 @@ a {
   font-size: 3rem;
   font-weight: 700;
   color: #000;
-}
-
-.numbers-section {
-  width: 100%;
-  max-width: 600px;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
 }
 
 .range-controls {
@@ -812,10 +916,27 @@ a {
 
 .number-section {
   width: 100%;
-  max-width: 600px;
+  max-width: 1100px;
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* The one number followed step by step, and the whole range of them listed,
+   are two readings of the same thing — so they sit side by side rather than one
+   burying the other down the page. */
+.number-halves {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2rem;
+  align-items: start;
+}
+
+.number-half {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
 }
 
 .number-input-control {
@@ -1033,33 +1154,49 @@ a {
   text-align: center;
 }
 
-.atbash-section {
+/* תמורות — the letter permutations, one input read by every temurah at once */
+.temurot-section {
   width: 100%;
-  max-width: 600px;
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
+  gap: 2rem;
+}
+
+.temurot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
+}
+
+.temurot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* The name of the temurah is the key to its block: it says which mapping the
+   result below it comes from, and titles the table that spells the mapping out */
+.temurot-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #000;
+  text-align: center;
+  font-family: 'David Libre', serif;
 }
 
 .atbash-correspondence-table {
   width: 100%;
-  padding: 1.5rem;
+  padding: 1rem;
   background: #f9f9f9;
   border-radius: 8px;
   border: 1px solid #eee;
 }
 
-.atbash-table-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #000;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
 .atbash-table {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
   justify-items: center;
   font-family: 'David Libre', serif;
@@ -1068,12 +1205,12 @@ a {
 .atbash-table-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0.35rem;
+  padding: 0.4rem;
   background: #fff;
   border-radius: 4px;
   border: 1px solid #ddd;
-  min-width: 80px;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -1093,12 +1230,6 @@ a {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-}
-
-.atbash-input-control label {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #333;
 }
 
 .atbash-input {
@@ -1128,12 +1259,6 @@ a {
   border-radius: 8px;
 }
 
-.atbash-result-label {
-  font-size: 1rem;
-  color: #666;
-  font-weight: 500;
-}
-
 .atbash-result-value {
   font-size: 2rem;
   font-weight: 700;
@@ -1141,6 +1266,519 @@ a {
   text-align: center;
   direction: rtl;
   word-break: break-word;
+}
+
+/* The alphabet drawn as a polygon: a תמורה is a turn or a fold of it, and a
+   word is the closed path through the letters it is written with. */
+.tp {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tp-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 0;
+}
+
+.tp-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.tp-polygon-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tp-polygon-card.inverted {
+  background: #000;
+  border-color: #333;
+}
+
+.tp-polygon-svg {
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
+}
+
+/* ---- the controls under the polygon ---- */
+.tp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.tp-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.tp-control-value {
+  min-width: 3.5ch;
+  text-align: center;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.8rem;
+  color: #444;
+  direction: ltr;
+}
+
+.tp-n span {
+  direction: ltr;
+}
+
+.tp-n input {
+  width: 3rem;
+  padding: 0.25rem 0.4rem;
+  text-align: center;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.85rem;
+  color: #222;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  direction: ltr;
+}
+
+.tp-n input:focus {
+  outline: none;
+  border-color: #999;
+}
+
+.tp-invert {
+  cursor: pointer;
+}
+
+.tp-invert input {
+  cursor: pointer;
+}
+
+.tp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  color: #444;
+  background: #eef0f2;
+  border: 1px solid #d5d8dc;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.15s;
+}
+
+.tp-btn:hover:not(:disabled) {
+  background: #e2e5e9;
+  border-color: #b8bcc2;
+  color: #111;
+}
+
+.tp-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.tp-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---- the mapping the shown תמורה amounts to ---- */
+.tp-mapping {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 60vh;
+}
+
+.tp-mapping-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.tp-mapping-name {
+  padding: 0.2rem 0.5rem;
+  background: #f5f5f5;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #222;
+  direction: ltr;
+}
+
+.tp-mapping-body {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  min-height: 0;
+  overflow: hidden auto;
+}
+
+.tp-segment {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.4rem;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.tp-segment-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tp-segment-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-family: 'David Libre', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #000;
+}
+
+.tp-segment-arrow {
+  width: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+/* ---- the word on the twenty-two-gon ---- */
+.tp-word {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tp-word-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tp-word-input {
+  min-width: 11rem;
+  padding: 0.5rem 0.75rem;
+  font-family: 'David Libre', serif;
+  font-size: 1.35rem;
+  text-align: right;
+  color: #000;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  direction: rtl;
+}
+
+.tp-word-input:focus {
+  outline: none;
+  border-color: #333;
+}
+
+.tp-toggle {
+  padding: 0.45rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #444;
+  background: #eef0f2;
+  border: 1px solid #d5d8dc;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.15s;
+}
+
+.tp-toggle:hover:not(:disabled) {
+  background: #e2e5e9;
+  border-color: #b8bcc2;
+  color: #111;
+}
+
+.tp-toggle:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.tp-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tp-toggle.active {
+  background: #333;
+  border-color: #333;
+  color: #fff;
+}
+
+.tp-word-result {
+  font-family: 'David Libre', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #9b59b6;
+}
+
+.tp-word-body {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+}
+
+.tp-word-body.with-lists {
+  grid-template-columns: minmax(130px, 1fr) minmax(0, 480px) minmax(130px, 1fr);
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.tp-word-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.tp-word-svg {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+}
+
+.tp-word-caption {
+  font-family: 'David Libre', serif;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+/* ---- the forty-four תמורות of the word ---- */
+.tp-list {
+  min-width: 0;
+  padding: 0.5rem;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.tp-list-title {
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #888;
+  text-align: center;
+}
+
+.tp-list-items {
+  display: grid;
+  gap: 0.1rem;
+  list-style: none;
+}
+
+.tp-list-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.05rem 0.35rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.tp-list-item:hover {
+  background: #f0f0f0;
+}
+
+.tp-list-item.active {
+  background: #f3e8f8;
+  border-color: #d5b8e4;
+}
+
+.tp-list-label {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.65rem;
+  color: #999;
+  direction: ltr;
+}
+
+.tp-list-word {
+  font-family: 'David Libre', serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: #000;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-list-word.in-tanakh {
+  color: #178c4e;
+}
+
+/* ---- the areas, and the צירופים gathered by shape ---- */
+.tp-areas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.tp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem 1.25rem;
+}
+
+.tp-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tp-stat-label {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.tp-stat-value {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.8rem;
+  color: #222;
+  direction: ltr;
+}
+
+.tp-orbits-note {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.tp-orbits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+  list-style: none;
+  max-height: 40vh;
+  overflow: hidden auto;
+}
+
+.tp-orbit {
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.tp-orbit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.65rem;
+  color: #999;
+  direction: ltr;
+}
+
+.tp-orbit-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tp-orbit-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.tp-orbit-word:hover {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.tp-orbit-word.in-tanakh {
+  border-color: #9ed3b6;
+  color: #178c4e;
+}
+
+.tp-orbit-word.selected {
+  background: #f3e8f8;
+  border-color: #a569bd;
+  box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2);
+}
+
+.tp-orbit-word-text {
+  font-family: 'David Libre', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tp-orbit-word-count {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.65rem;
+  color: #999;
+  direction: ltr;
+}
+
+@media (max-width: 900px) {
+  .tp-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tp-word-body.with-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---- ספור (story) tab ---- */
@@ -1154,7 +1792,8 @@ a {
 
 /* Keep the whole ספור tab within the viewport; blocks scroll internally */
 .container-fill {
-  height: 100vh;
+  height: calc(100vh - var(--appnav-h) - var(--subnav-h));
+  height: calc(100dvh - var(--appnav-h) - var(--subnav-h));
   overflow: hidden;
 }
 
@@ -1838,9 +2477,8 @@ a {
 }
 
 @media (max-width: 768px) {
-  .title {
-    font-size: 2.5rem;
-    margin-bottom: 1.5rem;
+  .subtitle {
+    font-size: 2.25rem;
   }
 
   /* Too many tabs to fit: let the strip scroll rather than clip the last ones */
@@ -1994,13 +2632,17 @@ a {
     font-size: 1.5rem;
   }
 
+  .temurot-grid,
+  .number-halves {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .atbash-table {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
   }
 
   .atbash-table-row {
-    min-width: 70px;
     padding: 0.4rem;
     gap: 0.3rem;
   }
@@ -2009,7 +2651,7 @@ a {
     font-size: 1.25rem;
   }
 
-  .atbash-table-title {
+  .temurot-card-title {
     font-size: 1.1rem;
   }
 
@@ -2045,14 +2687,6 @@ a {
   background: #f4f5f7;
 }
 
-/* The application menu, kept in sight on the reader page: same tabs as the
-   home page, flattened to one compact row so the stage keeps its height. */
-.pdfr-appnav {
-  flex-shrink: 0;
-  padding: 0.2rem 0.9rem 0;
-  background: #fff;
-  border-bottom: 1px solid #e6e8ea;
-}
 
 .tabs.tabs-compact {
   max-width: none;
@@ -2620,39 +3254,6 @@ a {
   flex-direction: column;
   overflow: hidden;
   background: #f1ece2;
-}
-
-/* Sub-navigation of the ספר section (reader / sources) */
-.src-subtabs {
-  display: inline-flex;
-  background: #eef0f2;
-  border: 1px solid #d5d8dc;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-inline-start: 0.2rem;
-}
-
-.src-subtab {
-  padding: 0.38rem 0.85rem;
-  font-size: 0.9rem;
-  color: #555;
-  text-decoration: none;
-  transition: all 0.15s;
-}
-
-.src-subtab + .src-subtab {
-  border-right: 1px solid #d5d8dc;
-}
-
-.src-subtab:hover {
-  background: #e2e5e9;
-  color: #111;
-}
-
-.src-subtab.active {
-  background: #fff;
-  color: #000;
-  font-weight: 600;
 }
 
 /* --- layout: the list of sources beside the page, each scrolling on its own */

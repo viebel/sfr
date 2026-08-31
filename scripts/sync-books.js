@@ -107,8 +107,10 @@ function prompter(auto) {
   }
 }
 
-// What to call a new book, which way it is bound, and the name its link will
-// carry. The PDF's own title is offered when it has one worth offering.
+// What to call a new book and which way it is bound. The PDF's own title is
+// offered when it has one worth offering. The id its link will carry follows
+// from the title — it is only ever the title transliterated, so there is
+// nothing to decide about it.
 async function describe(prompt, file, kind) {
   const size = fs.statSync(file).size / (1024 * 1024)
   console.log(`\n${path.relative(root, file)}  (${size.toFixed(1)} MB, ${kind})`)
@@ -126,9 +128,8 @@ async function describe(prompt, file, kind) {
   }
 
   const dir = await prompt.ask(`  reading direction [${guessDir(title)}]: `, guessDir(title))
-  const id = await prompt.ask(`  id [${slug(title)}]: `, slug(title))
 
-  return { title, dir: dir === 'ltr' ? 'ltr' : 'rtl', id, kind }
+  return { title, dir: dir === 'ltr' ? 'ltr' : 'rtl', id: slug(title), kind }
 }
 
 /*
