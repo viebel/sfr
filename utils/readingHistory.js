@@ -1,6 +1,6 @@
 /*
  * How each book was being read, in localStorage: the page reached, and the
- * settings it was read with — binding direction, spread, fit, zoom, rotation.
+ * settings it was read with — spread, fit, zoom.
  * Reopening a book puts all of it back rather than starting from the cover in
  * default settings.
  *
@@ -18,7 +18,7 @@ const MAX = 30
  * a browser's memory outvote the manifest, and correcting an entry would stop
  * reaching anyone who had already opened it.
  */
-export const VIEW_KEYS = ['spread', 'coverAlone', 'fitMode', 'zoomIndex', 'rotation']
+export const VIEW_KEYS = ['spread', 'coverAlone', 'fitMode', 'zoomIndex']
 
 export function pickView(source) {
   const view = {}

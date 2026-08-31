@@ -214,12 +214,6 @@ const IconShift = () => (
     <path d="M4 9h13l-3-3M20 15H7l3 3" />
   </Icon>
 )
-const IconRotate = () => (
-  <Icon>
-    <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
-    <path d="M20.5 3.5v5h-5" />
-  </Icon>
-)
 const IconExpand = () => (
   <Icon>
     <path d="M9 3.5H5.5a2 2 0 0 0-2 2V9M15 3.5h3.5a2 2 0 0 1 2 2V9M9 20.5H5.5a2 2 0 0 1-2-2V15M15 20.5h3.5a2 2 0 0 0 2-2V15" />
@@ -271,7 +265,7 @@ function renderScale(viewport) {
     : wanted
 }
 
-function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation }) {
+function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom }) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
   const chainRef = useRef(Promise.resolve())
@@ -296,12 +290,12 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
       }
       if (cancelled) return
 
-      const base = page.getViewport({ scale: 1, rotation })
+      const base = page.getViewport({ scale: 1 })
       const fitWidth = boxWidth / base.width
       const fitHeight = boxHeight / base.height
       const fit = fitMode === 'page' ? Math.min(fitWidth, fitHeight) : fitWidth
       const scale = Math.max(0.05, fit * zoom)
-      const viewport = page.getViewport({ scale, rotation })
+      const viewport = page.getViewport({ scale })
 
       const canvas = canvasRef.current
       const textDiv = textRef.current
@@ -366,7 +360,7 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, r
       textLayerRef.current?.cancel()
       textLayerRef.current = null
     }
-  }, [pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, rotation])
+  }, [pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom])
 
   return (
     <div
@@ -391,8 +385,7 @@ const defaultView = () => ({
   spread: true,
   coverAlone: true,
   fitMode: 'page',
-  zoomIndex: zoomSteps.indexOf(1),
-  rotation: 0
+  zoomIndex: zoomSteps.indexOf(1)
 })
 
 function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
@@ -1099,16 +1092,6 @@ export default function Library({ books = [] }) {
             <button
               type="button"
               className="pdfr-btn"
-              onClick={() => patchActive({ rotation: ((doc?.rotation || 0) + 90) % 360 })}
-              disabled={!doc}
-              title="סיבוב"
-              aria-label="סיבוב"
-            >
-              <IconRotate />
-            </button>
-            <button
-              type="button"
-              className="pdfr-btn"
               onClick={toggleFullscreen}
               title="מסך מלא"
               aria-label="מסך מלא"
@@ -1153,14 +1136,13 @@ export default function Library({ books = [] }) {
               <div className="pdfr-spread" style={{ direction: dir }}>
                 {pages.map(n => (
                   <PdfPageView
-                    key={`${doc.key}-${n}-${doc.rotation}`}
+                    key={`${doc.key}-${n}`}
                     pdfDoc={pdfDoc}
                     pageNumber={n}
                     boxWidth={boxWidth}
                     boxHeight={boxHeight}
                     fitMode={doc.fitMode}
                     zoom={zoom}
-                    rotation={doc.rotation}
                   />
                 ))}
               </div>
