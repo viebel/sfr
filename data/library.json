@@ -23,6 +23,26 @@
       "dir": "rtl"
     },
     {
+      "id": "lyhv-mgshb-htpthvt-hktb",
+      "file": "lyhv-mgshb-htpthvt-hktb.pdf",
+      "source": "books/Copy of mazeget shenkar.pdf",
+      "title": "אליהו מגשב התפתחות הכתב",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
+    },
+    {
+      "id": "mry-shpr",
+      "file": "mry-shpr.pdf",
+      "source": "manuscripts/אמרי שפר 776.pdf",
+      "title": "אמרי שפר",
+      "author": "",
+      "year": "",
+      "kind": "manuscript",
+      "dir": "rtl"
+    },
+    {
       "id": "hkmvny",
       "file": "hkmvny.pdf",
       "source": "books/חכמוני דונולו.pdf",
@@ -42,6 +62,16 @@
       "dir": "rtl",
       "pages": 167,
       "source": "books/חכמוני דונולו.pdf"
+    },
+    {
+      "id": "mdrsh-hhgyvn-rsh-mylyn",
+      "file": "mdrsh-hhgyvn-rsh-mylyn.pdf",
+      "source": "books/מדרש ההגיון - טו בשבט התשפו.pdf",
+      "title": "מדרש ההגיון - ראש מילין",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
     },
     {
       "id": "svlm-hlyh",
