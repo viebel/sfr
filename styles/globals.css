@@ -1,6 +1,18 @@
 :root {
   --appnav-h: 4rem;
-  --subnav-h: 2.1rem;
+
+  /*
+   * The ספריה is set in three tones and no more: the white of paper — the page,
+   * and everything raised above the ground — one grey for the ground itself,
+   * which is both the control bar and the surface the page lies on, and one
+   * grey for lines, darkened where a control answers the hand. What is muted is
+   * muted in a single ink.
+   */
+  --paper: #fff;
+  --ground: #eaecef;
+  --line: #d5d8dc;
+  --line-strong: #a9aeb5;
+  --ink-soft: #82878d;
 }
 
 * {
@@ -32,7 +44,7 @@ a {
 }
 
 .container {
-  min-height: calc(100vh - var(--appnav-h) - var(--subnav-h));
+  min-height: calc(100vh - var(--appnav-h));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -124,13 +136,14 @@ a {
   background: #fff;
 }
 
-/* The screens of the open ספר read as subordinate to it: a shade back, and set
-   a size down from the row above. */
-.appnav-screens {
-  height: var(--subnav-h);
-  align-items: center;
-  background: #fafbfc;
-  border-bottom: 1px solid #e6e8ea;
+/* The screens of the open ספר read as subordinate to it: set a size down, and
+   sitting on the same line as the name they belong to — a strip of their own
+   would cost every page of the app a row. */
+.appnav-sfarim .subtabs {
+  align-self: flex-end;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0 0.9rem 0.75rem;
 }
 
 /* Only the nikud tells סֵפֶר, סְפָר and סִפֻּר apart, so they are set large, in
@@ -199,13 +212,15 @@ a {
 
 .subtab:hover {
   color: #222;
-  background: #eef0f2;
+  background: var(--ground);
 }
 
+/* The screen you are on is the one written on the ground of the app rather than
+   on the white of the row. */
 .subtab.active {
   color: #000;
-  background: #fff;
-  border: 1px solid #dfe2e6;
+  background: var(--ground);
+  border: 1px solid var(--line);
   padding: calc(0.15rem - 1px) calc(0.7rem - 1px);
   font-weight: 600;
 }
@@ -1792,8 +1807,8 @@ a {
 
 /* Keep the whole ספור tab within the viewport; blocks scroll internally */
 .container-fill {
-  height: calc(100vh - var(--appnav-h) - var(--subnav-h));
-  height: calc(100dvh - var(--appnav-h) - var(--subnav-h));
+  height: calc(100vh - var(--appnav-h));
+  height: calc(100dvh - var(--appnav-h));
   overflow: hidden;
 }
 
@@ -2684,7 +2699,7 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f4f5f7;
+  background: var(--ground);
 }
 
 
@@ -2708,75 +2723,109 @@ a {
   border-bottom-width: 2px;
 }
 
-/* --- open documents, one tab each ---------------------------------------- */
+/* --- open documents, named in the top row of the app --------------------- */
 
-.pdfr-tabs {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.25rem;
-  flex-shrink: 0;
-  padding: 0.3rem 0.9rem 0;
-  background: #f4f5f7;
-  border-bottom: 1px solid #e6e8ea;
-  overflow-x: auto;
-  scrollbar-width: thin;
+/* The three ספרים take the whole row when nothing follows them (.tabs is
+   width: 100%); with a name to carry at the far end they take only their own
+   width, and the name gets the rest. */
+.appnav-sfarim .tabs.tabs-compact {
+  width: auto;
 }
 
-.pdfr-tab {
+/* The far end of the first row is the window's title: what is open is named
+   there, at the size of a label and not of the three ספרים it sits beside. */
+.appnav-trailing {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  min-width: 0;
+  margin-inline-start: auto;
+  padding-inline-start: 0.9rem;
+}
+
+/* On a narrow screen the name gives way first: the three ספרים are the app,
+   and the book keeps whatever is left, scrolling inside it. */
+@media (max-width: 768px) {
+  .appnav-trailing {
+    max-width: 45%;
+    padding-inline-start: 0.5rem;
+  }
+}
+
+.pdfr-doctabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pdfr-doctabs::-webkit-scrollbar {
+  display: none;
+}
+
+.pdfr-doctab {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 15rem;
-  padding-inline-end: 0.25rem;
-  background: #e9ebee;
-  border: 1px solid #dfe2e6;
-  border-bottom: none;
-  border-radius: 7px 7px 0 0;
+  max-width: 16rem;
+  padding-inline-end: 0.2rem;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.pdfr-tab.active {
-  background: #fff;
-  border-color: #d5d8dc;
+.pdfr-doctab:hover {
+  border-color: var(--line-strong);
 }
 
-.pdfr-tab-label {
+/* The book in front is the one being read: it comes forward, white against the
+   others. */
+.pdfr-doctab.active {
+  background: var(--paper);
+  border-color: var(--line-strong);
+}
+
+.pdfr-doctab-label {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   min-width: 0;
-  padding: 0.35rem 0.6rem;
+  padding: 0.3rem 0.55rem;
   font-family: inherit;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--ink-soft);
   background: none;
   border: none;
   cursor: pointer;
 }
 
-.pdfr-tab.active .pdfr-tab-label {
-  color: #111;
+.pdfr-doctab.active .pdfr-doctab-label {
+  color: #000;
 }
 
-.pdfr-tab-title {
+.pdfr-doctab-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   unicode-bidi: plaintext;
 }
 
-.pdfr-tab-close {
+.pdfr-doctab-close {
   display: inline-flex;
-  padding: 0.2rem;
-  color: #9a9ea4;
+  padding: 0.18rem;
+  color: var(--ink-soft);
   background: none;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
-.pdfr-tab-close:hover {
-  color: #222;
-  background: #d9dce0;
+.pdfr-doctab-close:hover {
+  color: #333;
+  background: var(--line);
 }
 
 /* --- loading -------------------------------------------------------------- */
@@ -2790,14 +2839,14 @@ a {
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
-  background: rgba(244, 245, 247, 0.88);
+  background: rgba(234, 236, 239, 0.88);
 }
 
 .pdfr-spinner {
   width: 30px;
   height: 30px;
-  border: 3px solid #dfe2e6;
-  border-top-color: #8a9098;
+  border: 3px solid var(--line);
+  border-top-color: var(--ink-soft);
   border-radius: 50%;
   animation: pdfr-spin 0.8s linear infinite;
 }
@@ -2806,8 +2855,8 @@ a {
   flex-shrink: 0;
   width: 11px;
   height: 11px;
-  border: 2px solid #dfe2e6;
-  border-top-color: #8a9098;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink-soft);
   border-radius: 50%;
   animation: pdfr-spin 0.8s linear infinite;
 }
@@ -2821,13 +2870,13 @@ a {
 .pdfr-loading-title {
   font-family: 'David Libre', serif;
   font-size: 1.1rem;
-  color: #555;
+  color: #333;
   unicode-bidi: plaintext;
 }
 
 .pdfr-loading-pct {
   font-size: 0.85rem;
-  color: #8a9098;
+  color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2838,8 +2887,9 @@ a {
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
   padding: 0.5rem 0.9rem;
-  background: #fff;
-  border-bottom: 1px solid #e6e8ea;
+  /* The page reaches right up to the bar now that nothing frames it, so the bar
+     cannot be white too: it is the grey the reading ground is, a shade down. */
+  background: var(--ground);
   flex-shrink: 0;
   z-index: 5;
 }
@@ -2851,25 +2901,27 @@ a {
   min-width: 0;
 }
 
+/* White on the grey of the bar, so a button is a raised thing on it and not a
+   line drawn on the same ground. */
 .pdfr-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.4rem;
-  color: #444;
-  background: #eef0f2;
-  border: 1px solid #d5d8dc;
+  color: #333;
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
   transition: all 0.15s;
 }
 
 .pdfr-btn:hover:not(:disabled) {
-  background: #e2e5e9;
-  border-color: #b8bcc2;
-  color: #111;
+  background: var(--ground);
+  border-color: var(--line-strong);
+  color: #000;
 }
 
 .pdfr-btn:active:not(:disabled) {
@@ -2882,8 +2934,8 @@ a {
 }
 
 .pdfr-btn.on {
-  background: #dfe3e8;
-  border-color: #a9aeb5;
+  background: var(--line);
+  border-color: var(--line-strong);
   color: #000;
 }
 
@@ -2894,7 +2946,7 @@ a {
 
 .pdfr-filename {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--ink-soft);
   max-width: 22ch;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2915,29 +2967,30 @@ a {
   padding: 0.35rem 0.4rem;
   font-size: 0.9rem;
   text-align: center;
-  color: #222;
-  background: #fff;
-  border: 1px solid #d5d8dc;
+  color: #333;
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 6px;
   font-family: inherit;
 }
 
 .pdfr-page-input:focus {
   outline: none;
-  border-color: #999;
+  border-color: var(--line-strong);
 }
 
 .pdfr-page-total {
   font-size: 0.85rem;
-  color: #777;
+  color: var(--ink-soft);
   white-space: nowrap;
 }
 
+/* A button like the others beside it, only wide enough for the number it both
+   shows and restores. */
 .pdfr-zoom-value {
-  min-width: 3.4rem;
-  text-align: center;
+  min-width: 3.6rem;
+  padding: 0.4rem 0.5rem;
   font-size: 0.85rem;
-  color: #666;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2953,25 +3006,24 @@ a {
   inset: 0;
   overflow: auto;
   display: flex;
-  padding: 24px; /* keep in sync with stagePad in pages/library.js */
   overscroll-behavior: contain;
 }
 
-/* No gap: the two pages of a spread touch, as in a bound book. The shadow sits
-   on the pair rather than on each page, so they read as one sheet.
+/* No gap and no edge: the two pages of a spread touch, as in a bound book, and
+   nothing is drawn around the pair — no shadow, no rule, no margin held back by
+   the stage. What frames the page is the window.
    direction: rtl puts the lower page number on the right, as in a Hebrew book */
 .pdfr-spread {
   display: flex;
   direction: rtl;
   align-items: flex-start;
   margin: auto;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
 }
 
 .pdfr-sheet {
   position: relative;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--paper);
   --user-unit: 1;
   --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
   --scale-round-x: 1px;
@@ -2989,7 +3041,7 @@ a {
   transform: translateX(-50%);
   padding: 0 0.4rem;
   font-size: 0.7rem;
-  color: #888;
+  color: var(--ink-soft);
   background: rgba(255, 255, 255, 0.85);
   border-radius: 4px;
   pointer-events: none;
@@ -3003,8 +3055,48 @@ a {
 }
 
 
+/* --- מסך מלא: the page and nothing else ---------------------------------- */
+
+.pdfr-root.pdfr-immersive {
+  position: relative;
+  background: #1b1c1e;
+}
+
+/* The one way out, and the only thing drawn over the page: it waits in the top
+   corner and shows itself when the mouse moves (.peek), so a still screen is
+   the book alone. Esc leaves too — the browser's own way out. */
+.pdfr-escape {
+  position: absolute;
+  top: 0.75rem;
+  inset-inline-start: 0.75rem;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: #f2f3f4;
+  background: rgba(24, 25, 27, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s, background 0.15s;
+}
+
+/* It stays where the hand left it — hidden but not gone, so the corner answers
+   a click even before the fade has brought it back. */
+.pdfr-root.peek .pdfr-escape,
+.pdfr-escape:hover,
+.pdfr-escape:focus-visible {
+  opacity: 1;
+}
+
+.pdfr-escape:hover {
+  background: rgba(24, 25, 27, 0.85);
+}
+
 .pdfr-root.dragging .pdfr-stage-outer {
-  outline: 2px dashed #b8bcc2;
+  outline: 2px dashed var(--line-strong);
   outline-offset: -8px;
 }
 
@@ -3028,8 +3120,8 @@ a {
   flex-direction: column;
   width: min(21rem, calc(100% - 1.5rem));
   max-height: calc(100% - 1.5rem);
-  background: #fff;
-  border: 1px solid #e6e8ea;
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
   overflow: hidden;
@@ -3041,8 +3133,8 @@ a {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.5rem 0.6rem;
-  color: #444;
-  border-bottom: 1px solid #eee;
+  color: #333;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -3069,14 +3161,14 @@ a {
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.2rem 0.35rem;
-  color: #7c8188;
+  color: var(--ink-soft);
 }
 
 .pdfr-library-shelf-head::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: #ececee;
+  background: var(--line);
 }
 
 .pdfr-book {
@@ -3087,8 +3179,8 @@ a {
   padding: 0.5rem 0.6rem;
   text-align: right;
   color: #333;
-  background: #f7f8f9;
-  border: 1px solid #e6e8ea;
+  background: var(--ground);
+  border: 1px solid var(--line);
   border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
@@ -3097,9 +3189,9 @@ a {
 }
 
 .pdfr-book:hover {
-  background: #eef0f2;
-  border-color: #b8bcc2;
-  color: #111;
+  background: var(--paper);
+  border-color: var(--line-strong);
+  color: #000;
 }
 
 .pdfr-book:active {
@@ -3107,8 +3199,8 @@ a {
 }
 
 .pdfr-book.on {
-  background: #dfe3e8;
-  border-color: #a9aeb5;
+  background: var(--line);
+  border-color: var(--line-strong);
 }
 
 .pdfr-book-title {
@@ -3125,19 +3217,19 @@ a {
   display: flex;
   gap: 0.4rem;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--ink-soft);
 }
 
 /* Where this book was left off, on the אחרונים shelf. */
 .pdfr-book-page {
-  color: #7c8188;
+  color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
 
 .pdfr-library-empty {
   padding: 1rem 0.6rem;
   font-size: 0.9rem;
-  color: #888;
+  color: var(--ink-soft);
   text-align: center;
 }
 

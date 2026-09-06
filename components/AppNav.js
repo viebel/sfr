@@ -53,8 +53,12 @@ const hrefOf = screen => screen.href || `/?tab=${screen.tab}`
  * that only names the three. The home page owns most screens as panels, so it
  * passes `onSelectTab` as well and gets buttons that switch panel in place;
  * every other page gets links.
+ *
+ * `trailing` is the far end of the first row — the title bar of the window, in
+ * effect, and so where a screen puts the name of what it has open. The ספריה
+ * hangs its open books there.
  */
-export default function AppNav({ current, onSelectTab }) {
+export default function AppNav({ current, onSelectTab, trailing }) {
   const openSefer = SCREENS.get(current)?.sefer
 
   // A screen the home page owns is a button only while the home page is the one
@@ -126,16 +130,15 @@ export default function AppNav({ current, onSelectTab }) {
   )
 
   return (
+    /* One row, not two: the screens of the open ספר hang off its name rather
+       than taking a strip of their own from every page. */
     <div className="appnav">
       <div className="appnav-row appnav-sfarim">
         {homeMark}
         <div className="tabs tabs-compact">{SFARIM.map(seferEntry)}</div>
+        {openSefer && <div className="subtabs">{openSefer.screens.map(screenEntry)}</div>}
+        {trailing ? <div className="appnav-trailing">{trailing}</div> : null}
       </div>
-      {openSefer && (
-        <div className="appnav-row appnav-screens">
-          <div className="subtabs">{openSefer.screens.map(screenEntry)}</div>
-        </div>
-      )}
     </div>
   )
 }

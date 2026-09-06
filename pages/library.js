@@ -219,6 +219,13 @@ const IconExpand = () => (
     <path d="M9 3.5H5.5a2 2 0 0 0-2 2V9M15 3.5h3.5a2 2 0 0 1 2 2V9M9 20.5H5.5a2 2 0 0 1-2-2V15M15 20.5h3.5a2 2 0 0 0 2-2V15" />
   </Icon>
 )
+// The same four corners as IconExpand, with the arrows turned inwards.
+const IconCollapse = () => (
+  <Icon>
+    <path d="M3.5 9H7a2 2 0 0 0 2-2V3.5M20.5 9H17a2 2 0 0 1-2-2V3.5M3.5 15H7a2 2 0 0 1 2 2v3.5M20.5 15H17a2 2 0 0 0-2 2v3.5" />
+  </Icon>
+)
+
 // Lines of text with the arrow of the direction they are read in.
 const IconDirection = ({ rtl }) => (
   <Icon>
@@ -418,6 +425,10 @@ export default function Library({ books = [] }) {
   const [history, setHistory] = useState([])
   const [hydrated, setHydrated] = useState(false)
   const [notice, setNotice] = useState('')
+  // מסך מלא: the reader alone on the screen, without the menu, the toolbar or
+  // the tabs — and a single button, which only the mouse brings back, to leave.
+  const [immersive, setImmersive] = useState(false)
+  const [chromePeek, setChromePeek] = useState(false)
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
@@ -427,6 +438,7 @@ export default function Library({ books = [] }) {
   const tasksRef = useRef(new Map())
   const closedRef = useRef(new Set())
   const bootedRef = useRef(false)
+  const peekTimerRef = useRef(null)
   const [box, setBox] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
@@ -797,12 +809,21 @@ export default function Library({ books = [] }) {
           e.preventDefault()
           patchActive({ zoomIndex: zoomSteps.indexOf(1) })
           break
+        // Esc leaves מסך מלא. When the browser gave us the screen it takes Esc
+        // for itself and we hear of it through fullscreenchange; this is for
+        // when it did not, and the page is only filling its window.
+        case 'Escape':
+          if (immersive && !document.fullscreenElement) {
+            e.preventDefault()
+            setImmersive(false)
+          }
+          break
         default:
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goForward, goBack, goTo, zoomBy, numPages, rtl, patchActive])
+  }, [goForward, goBack, goTo, zoomBy, numPages, rtl, patchActive, immersive])
 
   // --- available room for the pages ----------------------------------------
 
@@ -828,11 +849,11 @@ export default function Library({ books = [] }) {
   }, [])
 
   // The two pages of a spread sit flush against each other, as in a bound book,
-  // so there is no gap to subtract — only the stage padding (see .pdfr-stage).
-  const stagePad = 24
+  // and the spread sits flush in the frame that holds it: nothing is kept back
+  // around the page, so there is nothing to subtract here either.
   const count = Math.max(pages.length, 1)
-  const boxWidth = Math.max(80, (box.width - stagePad * 2) / count)
-  const boxHeight = Math.max(80, box.height - stagePad * 2)
+  const boxWidth = Math.max(80, box.width / count)
+  const boxHeight = Math.max(80, box.height)
 
   // --- drag & drop ----------------------------------------------------------
 
@@ -843,12 +864,56 @@ export default function Library({ books = [] }) {
     if (file) openFile(file)
   }
 
+  /*
+   * Two things at once, and the first is the one that matters: the reader drops
+   * everything but the page — menu, toolbar, tabs — and then asks for the
+   * screen as well. The screen is a favour the browser may refuse (an embedded
+   * page is never given it), and when it does the page still has the window to
+   * itself, which is what was asked for.
+   */
   const toggleFullscreen = () => {
     const el = rootRef.current
     if (!el) return
-    if (document.fullscreenElement) document.exitFullscreen()
-    else el.requestFullscreen?.()
+    if (immersive) {
+      setImmersive(false)
+      if (document.fullscreenElement) document.exitFullscreen()?.catch(() => {})
+    } else {
+      setImmersive(true)
+      el.requestFullscreen?.()?.catch(() => {})
+    }
   }
+
+  // Leaving the browser's fullscreen — Esc, F11, the OS — is leaving ours.
+  useEffect(() => {
+    const sync = () => {
+      if (!document.fullscreenElement) setImmersive(false)
+    }
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
+
+  // In מסך מלא nothing frames the page, so the way out has to be findable: any
+  // movement of the mouse shows the button, and it goes again once the hand is
+  // still.
+  useEffect(() => {
+    if (!immersive) {
+      setChromePeek(false)
+      return
+    }
+    const wake = () => {
+      setChromePeek(true)
+      if (peekTimerRef.current) clearTimeout(peekTimerRef.current)
+      peekTimerRef.current = setTimeout(() => setChromePeek(false), 2200)
+    }
+    wake()
+    window.addEventListener('mousemove', wake)
+    window.addEventListener('mousedown', wake)
+    return () => {
+      window.removeEventListener('mousemove', wake)
+      window.removeEventListener('mousedown', wake)
+      if (peekTimerRef.current) clearTimeout(peekTimerRef.current)
+    }
+  }, [immersive])
 
   // Printed books, manuscripts and the מקורות set as pages are shelves of the
   // same library, and what you were reading is one more — the one you reach for
@@ -902,6 +967,41 @@ export default function Library({ books = [] }) {
 
   const loadingPct = doc && doc.status === 'loading' ? Math.round(doc.progress * 100) : 0
 
+  /*
+   * The name of the book being read belongs where a window keeps the name of
+   * what it holds: the top row, beside the mark. Several books open at once are
+   * several names there, and the one in the front is the one you are reading.
+   */
+  const openBooks =
+    docs.length === 0 ? null : (
+      <div className="pdfr-doctabs" role="tablist" aria-label="ספרים פתוחים">
+        {docs.map(d => (
+          <div key={d.key} className={`pdfr-doctab${d.key === activeKey ? ' active' : ''}`}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={d.key === activeKey}
+              className="pdfr-doctab-label"
+              onClick={() => activate(d.key)}
+              title={d.title}
+            >
+              {d.status === 'loading' && <span className="pdfr-tab-spin" aria-hidden="true" />}
+              <span className="pdfr-doctab-title">{d.title}</span>
+            </button>
+            <button
+              type="button"
+              className="pdfr-doctab-close"
+              onClick={() => closeDoc(d.key)}
+              title="סגירה"
+              aria-label={`סגירת ${d.title}`}
+            >
+              <IconClose size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    )
+
   return (
     <>
       <Head>
@@ -912,7 +1012,9 @@ export default function Library({ books = [] }) {
 
       <div
         ref={rootRef}
-        className={`pdfr-root${dragging ? ' dragging' : ''}`}
+        className={`pdfr-root${dragging ? ' dragging' : ''}${
+          immersive ? ' pdfr-immersive' : ''
+        }${chromePeek ? ' peek' : ''}`}
         onDragOver={e => {
           e.preventDefault()
           setDragging(true)
@@ -922,211 +1024,209 @@ export default function Library({ books = [] }) {
         }}
         onDrop={onDrop}
       >
-        <AppNav current="library" />
+        {!immersive && <AppNav current="library" trailing={openBooks} />}
 
-        <div className="pdfr-toolbar">
-          <div className="pdfr-toolbar-group">
-            <button
-              type="button"
-              className={`pdfr-btn${libraryOpen ? ' on' : ''}`}
-              onClick={() => setLibraryOpen(o => !o)}
-              title="ספרייה"
-              aria-label="ספרייה"
-              aria-expanded={libraryOpen}
-            >
-              <IconLibrary />
-            </button>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title="פתיחת קובץ PDF"
-              aria-label="פתיחת קובץ PDF"
-            >
-              <IconOpen />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              className="pdfr-file-input"
-              onChange={e => {
-                openFile(e.target.files?.[0])
-                e.target.value = ''
-              }}
-            />
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => patchActive({ dir: rtl ? 'ltr' : 'rtl' })}
-              disabled={!doc}
-              title={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
-              aria-label={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
-            >
-              <IconDirection rtl={rtl} />
-            </button>
-          </div>
+        {immersive && (
+          <button
+            type="button"
+            className="pdfr-escape"
+            onClick={toggleFullscreen}
+            title="יציאה ממסך מלא (Esc)"
+            aria-label="יציאה ממסך מלא"
+          >
+            <IconCollapse />
+          </button>
+        )}
 
-          {/* The chevrons keep the book's own direction, so "further in" is
-              always the button on the side the reader is heading towards. */}
-          <div className="pdfr-toolbar-group" style={{ direction: dir }}>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => goTo(1)}
-              disabled={!pdfDoc || atStart}
-              title="לעמוד הראשון"
-              aria-label="לעמוד הראשון"
-            >
-              {rtl ? <IconEndRight /> : <IconEndLeft />}
-            </button>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={goBack}
-              disabled={!pdfDoc || atStart}
-              title="אחורה"
-              aria-label="אחורה"
-            >
-              {rtl ? <IconChevronRight /> : <IconChevronLeft />}
-            </button>
-            <form className="pdfr-pagebox" onSubmit={submitPage}>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="pdfr-page-input"
-                value={doc?.pageDraft ?? ''}
-                disabled={!pdfDoc}
-                onChange={e => patchActive({ pageDraft: e.target.value.replace(/[^0-9]/g, '') })}
-                onBlur={submitPage}
-                aria-label="מספר עמוד"
-              />
-              <span className="pdfr-page-total">/ {numPages || '—'}</span>
-            </form>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={goForward}
-              disabled={!pdfDoc || atEnd}
-              title="קדימה"
-              aria-label="קדימה"
-            >
-              {rtl ? <IconChevronLeft /> : <IconChevronRight />}
-            </button>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => goTo(numPages)}
-              disabled={!pdfDoc || atEnd}
-              title="לעמוד האחרון"
-              aria-label="לעמוד האחרון"
-            >
-              {rtl ? <IconEndLeft /> : <IconEndRight />}
-            </button>
-          </div>
-
-          <div className="pdfr-toolbar-group">
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => zoomBy(-1)}
-              disabled={!doc || doc.zoomIndex === 0}
-              title="הקטנה"
-              aria-label="הקטנה"
-            >
-              <IconZoomOut />
-            </button>
-            <span className="pdfr-zoom-value">{Math.round(zoom * 100)}%</span>
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={() => zoomBy(1)}
-              disabled={!doc || doc.zoomIndex === zoomSteps.length - 1}
-              title="הגדלה"
-              aria-label="הגדלה"
-            >
-              <IconZoomIn />
-            </button>
-            <button
-              type="button"
-              className={`pdfr-btn${doc?.fitMode === 'width' ? ' on' : ''}`}
-              onClick={() => {
-                // Fitting the page and then keeping a 200% multiplier on top of
-                // it fits nothing: asking for the whole page puts the zoom back
-                // to where the fit is what you see.
-                const fitMode = doc?.fitMode === 'page' ? 'width' : 'page'
-                patchActive(
-                  fitMode === 'page' ? { fitMode, zoomIndex: zoomSteps.indexOf(1) } : { fitMode }
-                )
-              }}
-              disabled={!doc}
-              title={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
-              aria-label={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
-              aria-pressed={doc?.fitMode === 'width'}
-            >
-              {doc?.fitMode === 'page' ? <IconFitWidth /> : <IconFitPage />}
-            </button>
-            <button
-              type="button"
-              className={`pdfr-btn${doc?.spread ? ' on' : ''}`}
-              onClick={() => patchActive({ spread: !doc?.spread })}
-              disabled={!doc}
-              title={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
-              aria-label={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
-              aria-pressed={!!doc?.spread}
-            >
-              {doc?.spread ? <IconSingle /> : <IconSpread />}
-            </button>
-            {doc?.spread && (
+        {!immersive && (
+          <div className="pdfr-toolbar">
+            <div className="pdfr-toolbar-group">
               <button
                 type="button"
-                className={`pdfr-btn${doc.coverAlone ? ' on' : ''}`}
+                className={`pdfr-btn${libraryOpen ? ' on' : ''}`}
+                onClick={() => setLibraryOpen(o => !o)}
+                title="ספרייה"
+                aria-label="ספרייה"
+                aria-expanded={libraryOpen}
+              >
+                <IconLibrary />
+              </button>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="פתיחת קובץ PDF"
+                aria-label="פתיחת קובץ PDF"
+              >
+                <IconOpen />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="pdfr-file-input"
+                onChange={e => {
+                  openFile(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => patchActive({ dir: rtl ? 'ltr' : 'rtl' })}
+                disabled={!doc}
+                title={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
+                aria-label={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
+              >
+                <IconDirection rtl={rtl} />
+              </button>
+            </div>
+
+            {/* The chevrons keep the book's own direction, so "further in" is
+                always the button on the side the reader is heading towards. */}
+            <div className="pdfr-toolbar-group" style={{ direction: dir }}>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => goTo(1)}
+                disabled={!pdfDoc || atStart}
+                title="לעמוד הראשון"
+                aria-label="לעמוד הראשון"
+              >
+                {rtl ? <IconEndRight /> : <IconEndLeft />}
+              </button>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={goBack}
+                disabled={!pdfDoc || atStart}
+                title="אחורה"
+                aria-label="אחורה"
+              >
+                {rtl ? <IconChevronRight /> : <IconChevronLeft />}
+              </button>
+              <form className="pdfr-pagebox" onSubmit={submitPage}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="pdfr-page-input"
+                  value={doc?.pageDraft ?? ''}
+                  disabled={!pdfDoc}
+                  onChange={e => patchActive({ pageDraft: e.target.value.replace(/[^0-9]/g, '') })}
+                  onBlur={submitPage}
+                  aria-label="מספר עמוד"
+                />
+                <span className="pdfr-page-total">/ {numPages || '—'}</span>
+              </form>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={goForward}
+                disabled={!pdfDoc || atEnd}
+                title="קדימה"
+                aria-label="קדימה"
+              >
+                {rtl ? <IconChevronLeft /> : <IconChevronRight />}
+              </button>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => goTo(numPages)}
+                disabled={!pdfDoc || atEnd}
+                title="לעמוד האחרון"
+                aria-label="לעמוד האחרון"
+              >
+                {rtl ? <IconEndLeft /> : <IconEndRight />}
+              </button>
+            </div>
+
+            <div className="pdfr-toolbar-group">
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => zoomBy(-1)}
+                disabled={!doc || doc.zoomIndex === 0}
+                title="הקטנה"
+                aria-label="הקטנה"
+              >
+                <IconZoomOut />
+              </button>
+              {/* The reading is also the way back to it: one press and the page
+                is at its own size again. */}
+            <button
+              type="button"
+              className="pdfr-btn pdfr-zoom-value"
+              onClick={() => patchActive({ zoomIndex: zoomSteps.indexOf(1) })}
+              disabled={!doc || doc.zoomIndex === zoomSteps.indexOf(1)}
+              title="חזרה ל־100%"
+              aria-label="חזרה ל־100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => zoomBy(1)}
+                disabled={!doc || doc.zoomIndex === zoomSteps.length - 1}
+                title="הגדלה"
+                aria-label="הגדלה"
+              >
+                <IconZoomIn />
+              </button>
+              <button
+                type="button"
+                className={`pdfr-btn${doc?.fitMode === 'width' ? ' on' : ''}`}
+                onClick={() => {
+                  // Fitting the page and then keeping a 200% multiplier on top of
+                  // it fits nothing: asking for the whole page puts the zoom back
+                  // to where the fit is what you see.
+                  const fitMode = doc?.fitMode === 'page' ? 'width' : 'page'
+                  patchActive(
+                    fitMode === 'page' ? { fitMode, zoomIndex: zoomSteps.indexOf(1) } : { fitMode }
+                  )
+                }}
+                disabled={!doc}
+                title={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
+                aria-label={doc?.fitMode === 'page' ? 'התאמה לרוחב' : 'התאמה לעמוד'}
+                aria-pressed={doc?.fitMode === 'width'}
+              >
+                {doc?.fitMode === 'page' ? <IconFitWidth /> : <IconFitPage />}
+              </button>
+              <button
+                type="button"
+                className={`pdfr-btn${doc?.spread ? ' on' : ''}`}
+                onClick={() => patchActive({ spread: !doc?.spread })}
+                disabled={!doc}
+                title={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
+                aria-label={doc?.spread ? 'עמוד יחיד' : 'כפולת עמודים'}
+                aria-pressed={!!doc?.spread}
+              >
+                {doc?.spread ? <IconSingle /> : <IconSpread />}
+              </button>
+              {/* Only a spread can be shifted, but the button holds its place
+                  in single page too: pressing anything here must never move
+                  what is beside it. */}
+              <button
+                type="button"
+                className={`pdfr-btn${doc?.spread && doc.coverAlone ? ' on' : ''}`}
                 onClick={() => patchActive({ coverAlone: !doc.coverAlone })}
+                disabled={!doc?.spread}
                 title="הזזת הצמדת העמודים"
                 aria-label="הזזת הצמדת העמודים"
-                aria-pressed={doc.coverAlone}
+                aria-pressed={!!doc?.coverAlone}
               >
                 <IconShift />
               </button>
-            )}
-            <button
-              type="button"
-              className="pdfr-btn"
-              onClick={toggleFullscreen}
-              title="מסך מלא"
-              aria-label="מסך מלא"
-            >
-              <IconExpand />
-            </button>
-          </div>
-        </div>
-
-        {docs.length > 0 && (
-          <div className="pdfr-tabs" role="tablist" aria-label="ספרים פתוחים">
-            {docs.map(d => (
-              <div key={d.key} className={`pdfr-tab${d.key === activeKey ? ' active' : ''}`}>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={d.key === activeKey}
-                  className="pdfr-tab-label"
-                  onClick={() => activate(d.key)}
-                  title={d.title}
-                >
-                  {d.status === 'loading' && <span className="pdfr-tab-spin" aria-hidden="true" />}
-                  <span className="pdfr-tab-title">{d.title}</span>
-                </button>
-                <button
-                  type="button"
-                  className="pdfr-tab-close"
-                  onClick={() => closeDoc(d.key)}
-                  title="סגירה"
-                  aria-label={`סגירת ${d.title}`}
-                >
-                  <IconClose size={14} />
-                </button>
-              </div>
-            ))}
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={toggleFullscreen}
+                title="מסך מלא"
+                aria-label="מסך מלא"
+              >
+                <IconExpand />
+              </button>
+            </div>
           </div>
         )}
 
