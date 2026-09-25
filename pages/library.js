@@ -1070,16 +1070,6 @@ export default function Library({ books = [] }) {
                   e.target.value = ''
                 }}
               />
-              <button
-                type="button"
-                className="pdfr-btn"
-                onClick={() => patchActive({ dir: rtl ? 'ltr' : 'rtl' })}
-                disabled={!doc}
-                title={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
-                aria-label={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
-              >
-                <IconDirection rtl={rtl} />
-              </button>
             </div>
 
             {/* The chevrons keep the book's own direction, so "further in" is
@@ -1225,6 +1215,16 @@ export default function Library({ books = [] }) {
                 aria-label="מסך מלא"
               >
                 <IconExpand />
+              </button>
+              <button
+                type="button"
+                className="pdfr-btn"
+                onClick={() => patchActive({ dir: rtl ? 'ltr' : 'rtl' })}
+                disabled={!doc}
+                title={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
+                aria-label={rtl ? 'קריאה משמאל לימין' : 'קריאה מימין לשמאל'}
+              >
+                <IconDirection rtl={rtl} />
               </button>
             </div>
           </div>

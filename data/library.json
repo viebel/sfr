@@ -189,6 +189,16 @@
       "source": "books/groupe et tonalités musicales.pdf"
     },
     {
+      "id": "heb-763-spr-ytsyrh",
+      "file": "heb-763-spr-ytsyrh.pdf",
+      "source": "books/heb 763 ספר יצירה.pdf",
+      "title": "heb 763 ספר יצירה",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
+    },
+    {
       "id": "permutations-bernouilli",
       "file": "permutations-bernouilli.pdf",
       "title": "Permutations Bernouilli",
@@ -198,6 +208,16 @@
       "dir": "ltr",
       "pages": 640,
       "source": "books/permutations Bernouilli.pdf"
+    },
+    {
+      "id": "q",
+      "file": "q.pdf",
+      "source": "books/Le_Pentateuque traduit par Wogue.pdf",
+      "title": "q",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
     },
     {
       "id": "regular-polytopes-coxeter",
