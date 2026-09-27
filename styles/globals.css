@@ -3555,7 +3555,7 @@ a {
 
 /* A note of this edition, not a line of the source: set apart, and quieter */
 .src-intro {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   line-height: 1.75;
   color: #6b6155;
   margin: 0 0 0.9rem;
@@ -3572,7 +3572,7 @@ a {
   width: 100%;
   border-collapse: collapse;
   margin: 0 0 1.4rem;
-  font-size: 0.88rem;
+  font-size: 0.98rem;
   color: #5c5346;
 }
 
@@ -3586,13 +3586,14 @@ a {
 
 .src-table thead th {
   color: #a2998a;
-  font-size: 0.78rem;
+  font-size: 0.98rem;
   letter-spacing: 0.04em;
   border-bottom-color: #e0d5bd;
 }
 
 .src-table tbody th {
   color: #4a4238;
+  font-size: 1.12rem;
 }
 
 /* A figure the legend already has a color for */
@@ -3604,9 +3605,24 @@ a {
 
 .src-table td {
   direction: ltr;
-  text-align: left;
+  text-align: right;
   font-variant-numeric: tabular-nums;
-  width: 5.5rem;
+  width: 7rem;
+}
+
+/* A figure and its סימן, side by side: the figure holds the column's right
+   edge, the letters sit to its left */
+.src-table-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.src-table-siman {
+  direction: rtl;
+  white-space: nowrap;
+  font-size: 1.2em;
+  line-height: 1;
 }
 
 .src-table tbody tr:last-child th,
@@ -3616,7 +3632,10 @@ a {
 
 .src-intro + .src-para,
 .src-intro + .src-head,
-.src-intro + .src-item {
+.src-intro + .src-item,
+.src-table + .src-para,
+.src-table + .src-head,
+.src-table + .src-item {
   margin-top: 2rem;
   padding-top: 1.6rem;
   border-top: 1px solid #e3d9c4;

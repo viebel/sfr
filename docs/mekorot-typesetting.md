@@ -35,10 +35,10 @@ A block is `{ type, text }`, except `verses`. The type is a role in the page, no
 | `list` | one item of a list | gold lozenge in the margin, no number in the text |
 | `line` | a display line — permutation tables and the like | centered, letter-spaced |
 | `quote` | a passage the author quotes from another book | cream panel, gold rule on the right |
-| `table` | the figures a note reckons with | `{ type: 'table', head: [...], rows: [[...]] }`, small, ruled, first cell of a row is its label |
+| `table` | the figures a note reckons with | `{ type: 'table', head: [...], rows: [[...]] }`, small, ruled, first cell of a row is its label; like an `intro`, the last one before the text sits above the rule |
 | `verses` | the biblical passage a commentary hangs on | `{ type: 'verses', verses: [{ n, text }] }`, vocalized, brown |
 
-`intro`, `table` and `verses` are the three the gematria layer never touches; their cells and text carry no marks either (a `table` is rendered as plain strings). Everything else is analyzed.
+`intro`, `table` and `verses` are the three the gematria layer never touches. An `intro` and a `table`'s row labels still carry the inline marks — `'הנותר, סימן [בי״ו] [תקצ״ה]'` — so a number named in a label is set like the same number in the text. A label gets no underline, so there a counted word like `הכ״ל` is marked `[…]` too — `'[תפ״ה] ו[הכ״ל], חצי שעה'` — or it would read as an ordinary word. A figure cell may carry its סימן after it — `'793 [תשצ״ג]'` — and the letters are set beside the figure, marked like the text's; the figure itself stays a plain string. Everything else is analyzed.
 
 An `intro` may carry a decimal gloss in parentheses — `[תק״ם] (540)` — so a number is readable both ways. Parentheses are normally set as a source reference; inside `.src-intro` that styling is neutralized, so there a parenthesis is just a parenthesis.
 
@@ -87,6 +87,7 @@ Straight ASCII quotes around a phrase (`'תק״ם'`) are not a mark of anything.
 - **Hovering a counted word opens `.src-tip`**, one card listing every value that covers it with its phrase; hovering a bare `[…]` number shows that number's value. A single card, positioned in JS and clamped inside `.src-sheet` on both axes, flipping under the word when there is no room above — never a per-element CSS tooltip that can overflow the sheet.
 - Each block is analyzed on its own, so a run never crosses a block.
 - **A figure in a `table` cell whose value is in the legend is underlined in its color** (`.src-table-num`), so a reckoning and the text point at the same numbers with the same marks.
+- **Selecting text picks its value.** A word, a run of words or a figure selected anywhere on the sheet is counted (a figure as itself), and every run on the page that adds up to it is tinted grey, as on the ספור tab — words in the analyzed blocks, `[…]` numbers in intros and table labels, table figures. The card shows the value and how many there are; a click anywhere clears it.
 - **The legend rows are even.** `.src-legend` is a grid whose column count comes from the number of colors (`--legend-cols`, at most six per row), so nine values read as 5 + 4 instead of wherever the wrap happened to fall.
 
 `hide` drops the runs a reading does not keep — a value that lands on an ordinary word, or on a pair of words the passage never joins. Each entry is `value|phrase`, the phrase written as the ספור panel shows it (no geresh, no gershayim): `'55|כי כה'`, `'30|כי'`. Every occurrence of the run goes, in every block — **except a run that covers a `{…}` or a `[…]`**. What the author wrote as a number or as letters is never noise, so `'30|כי'` drops the ordinary word כי and leaves `[כ״י]` counted. That exception is what keeps a value from vanishing out of the legend altogether: check the count beside every color before calling a reading done.
