@@ -6,6 +6,12 @@ import { bookHref } from '../data/books'
 import { sources } from '../data/sources'
 import { pickView, readHistory, readingStateOf, recordRead } from '../utils/readingHistory'
 import { loadSession, saveSession } from '../utils/readerSession'
+import {
+  canRememberFiles,
+  grantLocalFile,
+  readLocalFile,
+  rememberHandle
+} from '../utils/localFiles'
 
 // pdf.js is loaded lazily, in the browser, and outside the bundler: webpackIgnore
 // keeps this a native dynamic import of the copy scripts/copy-pdf-worker.js puts
@@ -25,30 +31,25 @@ function loadPdfjs() {
 // non-embedded standard fonts or JPEG2000 images render wrong.
 //
 /*
- * disableFontFace: pdf.js paints the letters itself, from the outlines in the
- * file, instead of handing the browser a font it rebuilt from the embedded
- * subset and letting the browser's font engine draw it.
+ * Font faces are left on (pdf.js's own default): pdf.js hands the browser the
+ * font it rebuilt from each embedded subset, and the system draws the letters
+ * with hinting and its small-size stem darkening. disableFontFace would paint
+ * the bare outlines instead: exact, but at the size a page fitted to the window
+ * gives body text the stems fall between pixels and the page reads grey and
+ * soft — half as many solid black pixels on a LaTeX page, a third less ink.
  *
- * Handing it over renders a little better — the engine hints the stems, and the
- * same page carries about a fifth more ink than the outlines do, which at the
- * size a page fitted to the window gives 9pt type is the difference between
- * crisp and grey. That is why it had been left on.
- *
- * But it makes the page depend on what the browser makes of that rebuilt font,
- * and some of them lose glyphs in it. A PDF written by LibreOffice — symbolic
- * TrueType subsets, no /Encoding, one glyph placed at a time — came back with
- * every ו and every י missing: their width still reserved, so the words fell
- * apart into scattered letters, while the same file was fine in ghostscript and
- * fine here. Outlines cannot lose a letter that way; nothing between pdf.js and
- * the canvas can drop it. A thinner stem is worth that.
+ * The risk it would guard against is a browser losing glyphs in the rebuilt
+ * font. It was seen once on a Word/Quartz PDF (symbolic Arial subsets, no
+ * /Encoding): every ו and י gone, their widths still reserved. That file now
+ * renders whole with font faces in Chromium, so if it comes back, the browser
+ * it happens in is the thing to find out.
  */
 const pdfjsOptions = {
   cMapUrl: '/pdfjs/cmaps/',
   cMapPacked: true,
   standardFontDataUrl: '/pdfjs/standard_fonts/',
   wasmUrl: '/pdfjs/wasm/',
-  iccUrl: '/pdfjs/iccs/',
-  disableFontFace: true
+  iccUrl: '/pdfjs/iccs/'
 }
 
 /*
@@ -192,6 +193,13 @@ const IconFitPage = () => (
     <path d="M12 7v10M12 7l-2 2M12 7l2 2M12 17l-2-2M12 17l2-2" />
   </Icon>
 )
+// A ruler: the page at the size the file gives it.
+const IconActualSize = () => (
+  <Icon>
+    <rect x="2.5" y="8" width="19" height="8" rx="1.5" />
+    <path d="M6.5 8v3M10.5 8v4.5M14.5 8v3M18.5 8v4.5" />
+  </Icon>
+)
 const IconFitWidth = () => (
   <Icon>
     <rect x="5" y="3.5" width="14" height="17" rx="1.5" />
@@ -264,16 +272,23 @@ function guessDir(title, declared) {
 }
 
 /*
- * How many device pixels to rasterise per CSS pixel. Matching the display's own
- * ratio is the usual advice, and it is what makes small type look soft: on a
- * 1x screen a page fitted to the window puts 9pt text on ~12 pixels, and the
- * stems fall between them. Rendering above the display and letting the browser
- * downscale spends memory to buy those in-between samples back.
+ * How many canvas pixels to rasterise per CSS pixel.
+ *
+ * On a dense screen, exactly the screen's own: one canvas pixel on one device
+ * pixel, and nothing between pdf.js and the glass resamples the page. Drawing
+ * above it and letting the browser shrink the canvas — 3x shown at 2x on a
+ * Retina Mac, as this used to — runs every stem through a bilinear filter, and
+ * thin type comes out grey and soft.
+ *
+ * On a 1x screen that is too few: a page fitted to the window puts 9pt text on
+ * ~12 pixels, and the stems fall between them. There the page is drawn at
+ * twice the screen and shrunk by exactly two, which averages whole pixels
+ * rather than smearing them.
  */
 const maxRenderPixels = 16e6 // ~64 MB of canvas, per page
 function renderScale(viewport) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3)
-  const wanted = Math.min(Math.max(dpr * 1.5, 2), 4)
+  const dpr = Math.min(window.devicePixelRatio || 1, 4)
+  const wanted = dpr >= 2 ? dpr : dpr * 2
   const area = viewport.width * viewport.height * wanted * wanted
   return area > maxRenderPixels
     ? Math.max(1, wanted * Math.sqrt(maxRenderPixels / area))
@@ -308,7 +323,18 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, g
       const base = page.getViewport({ scale: 1 })
       const fitWidth = boxWidth / base.width
       const fitHeight = boxHeight / base.height
-      const fit = fitMode === 'page' ? Math.min(fitWidth, fitHeight) : fitWidth
+      /*
+       * 'actual': the size the file gives the page — its MediaBox in points,
+       * times UserUnit, which the viewport already applies — at the CSS
+       * inch of 96 px. That is the browser's inch, not the glass's: how far it
+       * is from a real one depends on the screen.
+       */
+      const fit =
+        fitMode === 'actual'
+          ? 96 / 72
+          : fitMode === 'page'
+            ? Math.min(fitWidth, fitHeight)
+            : fitWidth
       const scale = Math.max(0.05, fit * zoom)
       const viewport = page.getViewport({ scale })
 
@@ -316,12 +342,18 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, g
       const textDiv = textRef.current
       if (!canvas || !textDiv) return
 
+      // The canvas is sized in whole pixels and its CSS size is derived from
+      // them, so the two are in exactly the ratio it was drawn at. Rounding
+      // each on its own left them a fraction apart, and the browser resampled
+      // the whole page to close the gap.
       const outputScale = renderScale(viewport)
-      canvas.width = Math.floor(viewport.width * outputScale)
-      canvas.height = Math.floor(viewport.height * outputScale)
-      canvas.style.width = `${Math.floor(viewport.width)}px`
-      canvas.style.height = `${Math.floor(viewport.height)}px`
-      setSize({ width: Math.floor(viewport.width), height: Math.floor(viewport.height), scale })
+      canvas.width = Math.round(viewport.width * outputScale)
+      canvas.height = Math.round(viewport.height * outputScale)
+      const cssWidth = canvas.width / outputScale
+      const cssHeight = canvas.height / outputScale
+      canvas.style.width = `${cssWidth}px`
+      canvas.style.height = `${cssHeight}px`
+      setSize({ width: cssWidth, height: cssHeight, scale })
 
       // With the grid on, the page is not laid on paper: what the file leaves
       // unpainted stays transparent, and the checkerboard behind the canvas
@@ -415,14 +447,16 @@ const defaultView = () => ({
   grid: false
 })
 
-function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
+function newDoc({ key, title, bookId, fileId, source, dir, page, view, status = 'loading' }) {
   const settings = { ...defaultView(), ...(view || {}) }
   return {
     key,
     title,
     bookId: bookId || '',
+    // A file from this machine that a link can name: see utils/localFiles.
+    fileId: fileId || '',
     source,
-    status, // idle | loading | ready | error
+    status, // idle | loading | permission | ready | error
     error: '',
     progress: 0,
     pdfDoc: null,
@@ -452,6 +486,7 @@ export default function Library({ books = [] }) {
 
   const rootRef = useRef(null)
   const stageRef = useRef(null)
+  const spreadRef = useRef(null)
   const fileInputRef = useRef(null)
   const docsRef = useRef(docs)
   const keySeqRef = useRef(0)
@@ -492,8 +527,20 @@ export default function Library({ books = [] }) {
       if (!source) return
       patchDoc(key, { status: 'loading', error: '', progress: 0 })
       try {
+        let from = source
+        if (source.fileId) {
+          const local = await readLocalFile(source.fileId)
+          if (closedRef.current.has(key)) return
+          if (!local) throw new Error('הקובץ לא נמצא')
+          if (!local.file) {
+            patchDoc(key, { status: 'permission', title: local.name })
+            return
+          }
+          from = { data: new Uint8Array(await local.file.arrayBuffer()) }
+          patchDoc(key, { title: local.name })
+        }
         const pdfjs = await loadPdfjs()
-        const task = pdfjs.getDocument({ ...pdfjsOptions, ...source })
+        const task = pdfjs.getDocument({ ...pdfjsOptions, ...from })
         tasksRef.current.set(key, task)
         // 40 MB of manuscript takes a while to arrive: report how far it got.
         task.onProgress = ({ loaded, total }) => {
@@ -534,10 +581,12 @@ export default function Library({ books = [] }) {
   )
 
   const openDoc = useCallback(
-    ({ source, title, bookId = '', dir: declared, page }) => {
+    ({ source, title, bookId = '', fileId = '', dir: declared, page }) => {
       // A book already open is brought forward rather than loaded a second time.
-      if (bookId) {
-        const open = docsRef.current.find(d => d.bookId === bookId)
+      if (bookId || fileId) {
+        const open = docsRef.current.find(d =>
+          bookId ? d.bookId === bookId : d.fileId === fileId
+        )
         if (open) {
           if (page) patchDoc(open.key, { page, pageDraft: String(page) })
           setLibraryOpen(false)
@@ -557,6 +606,7 @@ export default function Library({ books = [] }) {
           key,
           title,
           bookId,
+          fileId,
           source,
           page: start,
           view: saved.view,
@@ -581,6 +631,42 @@ export default function Library({ books = [] }) {
     },
     [openDoc]
   )
+
+  // A file handed over with its handle gets an id the address can carry.
+  const openHandle = useCallback(
+    async handle => {
+      if (!/\.pdf$/i.test(handle.name)) return
+      let fileId
+      try {
+        fileId = await rememberHandle(handle)
+      } catch {
+        openFile(await handle.getFile())
+        return
+      }
+      openDoc({ source: { fileId }, title: handle.name, fileId })
+    },
+    [openDoc, openFile]
+  )
+
+  const pickFile = async () => {
+    if (!canRememberFiles()) {
+      fileInputRef.current?.click()
+      return
+    }
+    let handle
+    try {
+      ;[handle] = await window.showOpenFilePicker({
+        types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
+      })
+    } catch {
+      return // the picker was dismissed
+    }
+    openHandle(handle)
+  }
+
+  const grantAccess = async d => {
+    if (await grantLocalFile(d.fileId)) loadInto(d.key, d.source, d.page)
+  }
 
   const openBook = useCallback(
     (book, page) => {
@@ -630,6 +716,7 @@ export default function Library({ books = [] }) {
     const page = Number.isFinite(wantedPage) && wantedPage > 0 ? wantedPage : 0
     const linkedId = (params.get('book') || '').normalize('NFC')
     const url = params.get('url')
+    const linkedFile = params.get('file')
 
     const fromBook = book => {
       const saved = readingStateOf(book.id)
@@ -676,6 +763,16 @@ export default function Library({ books = [] }) {
         status: 'idle'
       })
       restored.push(front)
+    } else if (linkedFile) {
+      front = newDoc({
+        key: `doc${++keySeqRef.current}`,
+        title: params.get('name') || 'PDF',
+        fileId: linkedFile,
+        source: { fileId: linkedFile },
+        page: page || 1,
+        status: 'idle'
+      })
+      restored.push(front)
     } else if (linkedId) {
       setNotice('הספר לא נמצא בספרייה')
     } else if (session.active) {
@@ -698,6 +795,14 @@ export default function Library({ books = [] }) {
     const params = new URLSearchParams(window.location.search)
     if (doc.bookId) params.set('book', doc.bookId)
     else params.delete('book')
+    // The name only says which file the link is to; the id is what opens it.
+    if (doc.fileId) {
+      params.set('file', doc.fileId)
+      params.set('name', doc.title)
+    } else {
+      params.delete('file')
+      params.delete('name')
+    }
     params.set('page', String(doc.page))
     const next = `${window.location.pathname}?${params}`
     if (next !== `${window.location.pathname}${window.location.search}`) {
@@ -845,6 +950,37 @@ export default function Library({ books = [] }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [goForward, goBack, goTo, zoomBy, numPages, rtl, patchActive, immersive])
 
+  /*
+   * The pages are drawn one canvas pixel to one device pixel, but only if the
+   * canvas also starts on a device pixel. Centring the spread in the stage puts
+   * it wherever half the leftover room falls — 230.5 device pixels in, say —
+   * and so does any strip above it whose height is not a whole number of
+   * pixels. The browser then resamples the whole page to draw it there, and
+   * text goes soft. So once the spread is laid out it is nudged back onto the
+   * pixel grid by whatever fraction it missed it by.
+   */
+  const snapSpread = useCallback(() => {
+    const el = spreadRef.current
+    if (!el) return
+    el.style.translate = ''
+    const dpr = window.devicePixelRatio || 1
+    const r = el.getBoundingClientRect()
+    const dx = (Math.round(r.left * dpr) - r.left * dpr) / dpr
+    const dy = (Math.round(r.top * dpr) - r.top * dpr) / dpr
+    if (dx || dy) el.style.translate = `${dx}px ${dy}px`
+  }, [])
+
+  // Pages arrive at their size after the spread is mounted, and the stage
+  // moves when the window does: every one of those is a new position.
+  useEffect(() => {
+    const el = spreadRef.current
+    if (!el) return
+    const observer = new ResizeObserver(snapSpread)
+    observer.observe(el)
+    snapSpread()
+    return () => observer.disconnect()
+  }, [pdfDoc, box, snapSpread])
+
   // --- available room for the pages ----------------------------------------
 
   useEffect(() => {
@@ -880,8 +1016,18 @@ export default function Library({ books = [] }) {
   const onDrop = e => {
     e.preventDefault()
     setDragging(false)
+    // The handle has to be asked for during the drop itself: the items are
+    // emptied as soon as the event returns.
+    const item = [...(e.dataTransfer?.items || [])].find(i => i.kind === 'file')
+    const handle = item?.getAsFileSystemHandle?.()
     const file = e.dataTransfer?.files?.[0]
-    if (file) openFile(file)
+    if (handle) {
+      handle
+        .then(h => (h?.kind === 'file' ? openHandle(h) : file && openFile(file)))
+        .catch(() => file && openFile(file))
+    } else if (file) {
+      openFile(file)
+    }
   }
 
   /*
@@ -1074,7 +1220,7 @@ export default function Library({ books = [] }) {
               <button
                 type="button"
                 className="pdfr-btn"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={pickFile}
                 title="פתיחת קובץ PDF"
                 aria-label="פתיחת קובץ PDF"
               >
@@ -1204,6 +1350,22 @@ export default function Library({ books = [] }) {
               </button>
               <button
                 type="button"
+                className={`pdfr-btn${doc?.fitMode === 'actual' ? ' on' : ''}`}
+                onClick={() =>
+                  patchActive({
+                    fitMode: doc?.fitMode === 'actual' ? 'page' : 'actual',
+                    zoomIndex: zoomSteps.indexOf(1)
+                  })
+                }
+                disabled={!doc}
+                title="גודל אמיתי"
+                aria-label="גודל אמיתי"
+                aria-pressed={doc?.fitMode === 'actual'}
+              >
+                <IconActualSize />
+              </button>
+              <button
+                type="button"
                 className={`pdfr-btn${doc?.spread ? ' on' : ''}`}
                 onClick={() => patchActive({ spread: !doc?.spread })}
                 disabled={!doc}
@@ -1264,7 +1426,7 @@ export default function Library({ books = [] }) {
         <div className="pdfr-stage-outer" ref={stageRef}>
           <div className="pdfr-stage">
             {pdfDoc && box.width > 0 && (
-              <div className="pdfr-spread" style={{ direction: dir }}>
+              <div ref={spreadRef} className="pdfr-spread" style={{ direction: dir }}>
                 {pages.map(n => (
                   <PdfPageView
                     key={`${doc.key}-${n}`}
@@ -1285,6 +1447,21 @@ export default function Library({ books = [] }) {
                 <span className="pdfr-spinner" aria-hidden="true" />
                 <span className="pdfr-loading-title">{doc.title}</span>
                 {loadingPct > 0 && <span className="pdfr-loading-pct">{loadingPct}%</span>}
+              </div>
+            )}
+
+            {doc?.status === 'permission' && (
+              <div className="pdfr-loading">
+                <span className="pdfr-loading-title">{doc.title}</span>
+                <button
+                  type="button"
+                  className="pdfr-btn"
+                  onClick={() => grantAccess(doc)}
+                  title="פתיחת הקובץ"
+                  aria-label="פתיחת הקובץ"
+                >
+                  <IconOpen />
+                </button>
               </div>
             )}
 
