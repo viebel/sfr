@@ -295,17 +295,105 @@ function renderScale(viewport) {
     : wanted
 }
 
-function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, grid }) {
+/*
+ * The scale a page is drawn at, from its size at scale 1.
+ *
+ * 'actual': the size the file gives the page — its MediaBox in points, times
+ * UserUnit, which the viewport already applies — at the CSS inch of 96 px.
+ * That is the browser's inch, not the glass's: how far it is from a real one
+ * depends on the screen.
+ */
+function pageScale(base, boxWidth, boxHeight, fitMode, zoom) {
+  const fitWidth = boxWidth / base.width
+  const fitHeight = boxHeight / base.height
+  const fit =
+    fitMode === 'actual'
+      ? 96 / 72
+      : fitMode === 'page'
+        ? Math.min(fitWidth, fitHeight)
+        : fitWidth
+  return Math.max(0.05, fit * zoom)
+}
+
+/*
+ * The size, at scale 1, of the last page of each document laid out. A page
+ * still being fetched is held at that size, so the sheet — and the spinner on
+ * it — is where the page will be, instead of nothing. A page of the same book
+ * is almost always the same size; the first one is guessed as A4.
+ */
+const lastPageSize = new WeakMap()
+const guessedPageSize = { width: 595, height: 842 }
+
+/*
+ * The pages either side of the view, fetched and drawn once, off screen, when
+ * the view itself is drawn: turning the page then only paints. The book is
+ * read in pieces (see readAsNeeded), so without this every page turn waits
+ * for its scan to arrive.
+ *
+ * Drawn on a canvas of one pixel, because a page drawn once keeps what it
+ * needed — the operator list and its decoded images — and the next render of
+ * it, at any size, starts from there. Asking pdf.js for the operator list
+ * alone would not do: it caches that under a different key than a render.
+ *
+ * Forward first, as the reader goes; only a few, since each is a scan's worth
+ * of bytes and of memory. A page turn stops the queue; a page already on its
+ * way is let finish — it is likely the one about to be shown.
+ */
+const preloadAround = 2
+
+async function preloadPages(pdfDoc, around, isStale) {
+  for (const n of around) {
+    if (isStale()) return
+    try {
+      const page = await pdfDoc.getPage(n)
+      if (isStale()) return
+      const base = page.getViewport({ scale: 1 })
+      const viewport = page.getViewport({ scale: 1 / Math.max(base.width, base.height) })
+      const canvas = document.createElement('canvas')
+      canvas.width = 1
+      canvas.height = 1
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
+    } catch {
+      /* a page that will not preload is simply drawn when it is shown */
+    }
+  }
+}
+
+function pagesAround(pages, numPages) {
+  const first = pages[0]
+  const last = pages[pages.length - 1]
+  const ahead = []
+  const behind = []
+  for (let i = 1; i <= preloadAround; i++) {
+    if (last + i <= numPages) ahead.push(last + i)
+    if (first - i >= 1) behind.push(first - i)
+  }
+  return [...ahead, ...behind]
+}
+
+function PdfPageView({
+  pdfDoc,
+  pageNumber,
+  boxWidth,
+  boxHeight,
+  fitMode,
+  zoom,
+  grid,
+  onDrawn
+}) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
   const chainRef = useRef(Promise.resolve())
   const taskRef = useRef(null)
   const textLayerRef = useRef(null)
   const [size, setSize] = useState(null)
+  // True until the canvas holds this page as it is now asked for.
+  const [busy, setBusy] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     const previous = chainRef.current
+    setBusy(true)
 
     chainRef.current = (async () => {
       // Renders of the same canvas must never overlap: wait for the previous one.
@@ -316,26 +404,14 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, g
       try {
         page = await pdfDoc.getPage(pageNumber)
       } catch {
+        if (!cancelled) setBusy(false)
         return
       }
       if (cancelled) return
 
       const base = page.getViewport({ scale: 1 })
-      const fitWidth = boxWidth / base.width
-      const fitHeight = boxHeight / base.height
-      /*
-       * 'actual': the size the file gives the page — its MediaBox in points,
-       * times UserUnit, which the viewport already applies — at the CSS
-       * inch of 96 px. That is the browser's inch, not the glass's: how far it
-       * is from a real one depends on the screen.
-       */
-      const fit =
-        fitMode === 'actual'
-          ? 96 / 72
-          : fitMode === 'page'
-            ? Math.min(fitWidth, fitHeight)
-            : fitWidth
-      const scale = Math.max(0.05, fit * zoom)
+      lastPageSize.set(pdfDoc, { width: base.width, height: base.height })
+      const scale = pageScale(base, boxWidth, boxHeight, fitMode, zoom)
       const viewport = page.getViewport({ scale })
 
       const canvas = canvasRef.current
@@ -382,11 +458,15 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, g
       try {
         await task.promise
       } catch {
+        if (!cancelled) setBusy(false)
         return
       } finally {
         if (taskRef.current === task) taskRef.current = null
       }
       if (cancelled) return
+      // The page is on the canvas; the text layer comes after, unseen.
+      setBusy(false)
+      onDrawn?.(pageNumber)
 
       // Selectable text on top of the rendered bitmap.
       textLayerRef.current?.cancel()
@@ -418,20 +498,42 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, g
     }
   }, [pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, grid])
 
+  let shown = size
+  if (!shown && boxWidth > 0) {
+    const base = lastPageSize.get(pdfDoc) || guessedPageSize
+    const scale = pageScale(base, boxWidth, boxHeight, fitMode, zoom)
+    shown = { width: base.width * scale, height: base.height * scale, scale }
+  }
+
   return (
     <div
       className={`pdfr-sheet${grid ? ' pdfr-grid' : ''}`}
       style={{
-        width: size ? `${size.width}px` : undefined,
-        height: size ? `${size.height}px` : undefined,
-        '--scale-factor': size ? size.scale : 1
+        width: shown ? `${shown.width}px` : undefined,
+        height: shown ? `${shown.height}px` : undefined,
+        '--scale-factor': shown ? shown.scale : 1
       }}
+      aria-busy={busy}
     >
       {/* A canvas keeps the alpha it was first asked for: turning the grid on
-          or off needs a new one. */}
-      <canvas key={grid ? 'alpha' : 'opaque'} ref={canvasRef} className="pdfr-canvas" />
+          or off needs a new one.
+          dir="ltr": a canvas draws text in the direction its element inherits,
+          and pdf.js places each glyph with its own fillText at the glyph's left
+          edge. In a right-to-left book every glyph would end there instead,
+          moved left by its own width, and the words fall apart. */}
+      <canvas
+        key={grid ? 'alpha' : 'opaque'}
+        ref={canvasRef}
+        className="pdfr-canvas"
+        dir="ltr"
+      />
       <div ref={textRef} className="textLayer" />
       <div className="pdfr-sheet-number">{pageNumber}</div>
+      {busy && (
+        <div className="pdfr-sheet-busy" aria-hidden="true">
+          <span className="pdfr-spinner" />
+        </div>
+      )}
     </div>
   )
 }
@@ -507,6 +609,33 @@ export default function Library({ books = [] }) {
   const rtl = dir === 'rtl'
   const zoom = zoomSteps[doc?.zoomIndex ?? zoomSteps.indexOf(1)]
   const pages = pdfDoc ? groupPages(doc.page, doc.spread, doc.coverAlone, numPages) : []
+  const pagesKey = pages.join(',')
+
+  // Which pages of the view are on screen, so the ones around it wait for them.
+  const [drawn, setDrawn] = useState({ pdfDoc: null, pages: [] })
+  const onPageDrawn = useCallback(
+    n =>
+      setDrawn(d =>
+        d.pdfDoc !== pdfDoc
+          ? { pdfDoc, pages: [n] }
+          : d.pages.includes(n)
+            ? d
+            : { pdfDoc, pages: [...d.pages, n] }
+      ),
+    [pdfDoc]
+  )
+  const viewDrawn =
+    pages.length > 0 && drawn.pdfDoc === pdfDoc && pages.every(n => drawn.pages.includes(n))
+
+  useEffect(() => {
+    if (!pdfDoc || !viewDrawn) return
+    let stale = false
+    const view = pagesKey.split(',').map(Number)
+    preloadPages(pdfDoc, pagesAround(view, numPages), () => stale)
+    return () => {
+      stale = true
+    }
+  }, [pdfDoc, pagesKey, numPages, viewDrawn])
 
   const patchDoc = useCallback((key, patch) => {
     setDocs(ds => ds.map(d => (d.key === key ? { ...d, ...patch } : d)))
@@ -1437,6 +1566,7 @@ export default function Library({ books = [] }) {
                     fitMode={doc.fitMode}
                     zoom={zoom}
                     grid={!!doc.grid}
+                    onDrawn={onPageDrawn}
                   />
                 ))}
               </div>

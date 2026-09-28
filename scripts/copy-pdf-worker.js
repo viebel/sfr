@@ -35,11 +35,38 @@ const dirs = ['cmaps', 'standard_fonts', 'wasm', 'iccs']
  * page that is not there fails the way any missing page does, on that page,
  * rather than making every book pay to rule it out.
  */
+/*
+ * A page is found by its place in a flat list, not by reading the ones before it.
+ *
+ * To find page n, pdf.js walks the page tree from the top and opens every kid
+ * it passes, to learn whether it is one page or a branch holding many. In a
+ * flat tree that is every page before n — and on the top level it also starts
+ * fetching all the kids at once, to have them ready. Each page object sits
+ * beside its own scan, so each one costs a range request of its own: page 60 of
+ * a 129-page manuscript read 123 ranges, 32 MB of a 44 MB file, before it drew.
+ *
+ * A node whose /Count equals the length of its /Kids is a list of pages, one
+ * per kid: page n is kid n, and it is the only one fetched. Page 60 then costs
+ * its own object and its own scan.
+ *
+ * What it costs: a node that counts the same but not one page per kid — a
+ * branch of 0 beside a branch of 2 — would land on the wrong kid. The spec
+ * forbids empty branches, and such a file will show the wrong page rather
+ * than fail; /Count is trusted here as it is above.
+ *
+ * (e: the page index sought, l: pages passed so far, c: /Count, h: /Kids,
+ * t: nodes still to visit — pdf.js's minified names in getPageDict.)
+ */
 const patches = [
   {
     file: 'pdf.worker.min.mjs',
     from: 'await this.ensureDoc("checkFirstPage",[e]);await this.ensureDoc("checkLastPage",[e])',
     to: 'await this.ensureDoc("checkFirstPage",[e])'
+  },
+  {
+    file: 'pdf.worker.min.mjs',
+    from: 'throw new FormatError("Page dictionary kids object is not an array.")}for(let e=h.length-1;e>=0;e--){const n=h[e];t.push(n);',
+    to: 'throw new FormatError("Page dictionary kids object is not an array.")}if(c===h.length&&h.every(e=>e instanceof Ref)){t.push(h[e-l]);l=e;continue}for(let e=h.length-1;e>=0;e--){const n=h[e];t.push(n);'
   }
 ]
 
@@ -72,7 +99,7 @@ function copyIfStale(source, target) {
     if (!code.includes(from)) {
       throw new Error(
         `pdf.js patch no longer applies to ${path.basename(target)}: "${from}" not found. ` +
-          `Check whether pdfjs-dist still blocks getDocument on checkLastPage, and update scripts/copy-pdf-worker.js.`
+          `Find the code it patches in the new pdfjs-dist (the comments above the patches say what it does) and update scripts/copy-pdf-worker.js.`
       )
     }
     code = code.replace(from, to)

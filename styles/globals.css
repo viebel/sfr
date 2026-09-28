@@ -3047,6 +3047,33 @@ a {
   display: block;
 }
 
+/* A page on its way: a spinner on the sheet, held at the middle of what is in
+   view when the sheet is taller than the window. It shows only after a moment,
+   so a zoom or a page already fetched does not flash it. */
+.pdfr-sheet-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: none;
+  opacity: 0;
+  animation: pdfr-busy-in 0.15s ease-out 0.25s forwards;
+}
+
+.pdfr-sheet-busy .pdfr-spinner {
+  position: sticky;
+  top: calc(50% - 15px);
+  margin-top: 1.5rem;
+}
+
+@keyframes pdfr-busy-in {
+  to {
+    opacity: 1;
+  }
+}
+
 .pdfr-sheet-number {
   position: absolute;
   bottom: 4px;
