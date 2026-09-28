@@ -18,7 +18,7 @@ const MAX = 30
  * a browser's memory outvote the manifest, and correcting an entry would stop
  * reaching anyone who had already opened it.
  */
-export const VIEW_KEYS = ['spread', 'coverAlone', 'fitMode', 'zoomIndex']
+export const VIEW_KEYS = ['spread', 'coverAlone', 'fitMode', 'zoomIndex', 'grid']
 
 export function pickView(source) {
   const view = {}

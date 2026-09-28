@@ -214,6 +214,14 @@ const IconShift = () => (
     <path d="M4 9h13l-3-3M20 15H7l3 3" />
   </Icon>
 )
+// A transparency grid: the checkerboard every image editor shows where there is
+// nothing painted.
+const IconGrid = () => (
+  <Icon>
+    <rect x="4" y="4" width="16" height="16" rx="1.5" />
+    <path d="M4 4h8v8H4zM12 12h8v8h-8z" fill="currentColor" stroke="none" />
+  </Icon>
+)
 const IconExpand = () => (
   <Icon>
     <path d="M9 3.5H5.5a2 2 0 0 0-2 2V9M15 3.5h3.5a2 2 0 0 1 2 2V9M9 20.5H5.5a2 2 0 0 1-2-2V15M15 20.5h3.5a2 2 0 0 0 2-2V15" />
@@ -272,7 +280,7 @@ function renderScale(viewport) {
     : wanted
 }
 
-function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom }) {
+function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, grid }) {
   const canvasRef = useRef(null)
   const textRef = useRef(null)
   const chainRef = useRef(Promise.resolve())
@@ -315,19 +323,28 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom })
       canvas.style.height = `${Math.floor(viewport.height)}px`
       setSize({ width: Math.floor(viewport.width), height: Math.floor(viewport.height), scale })
 
-      const context = canvas.getContext('2d', { alpha: false })
+      // With the grid on, the page is not laid on paper: what the file leaves
+      // unpainted stays transparent, and the checkerboard behind the canvas
+      // shows through. pdf.js fills the page with `background` before drawing,
+      // white unless told otherwise.
+      const context = canvas.getContext('2d', { alpha: grid })
       // Scans are images being shrunk to the page box; the default 'low'
       // filter makes a bitonal scan crawl with aliasing.
       context.imageSmoothingQuality = 'high'
       context.save()
-      context.fillStyle = '#fff'
-      context.fillRect(0, 0, canvas.width, canvas.height)
+      if (grid) {
+        context.clearRect(0, 0, canvas.width, canvas.height)
+      } else {
+        context.fillStyle = '#fff'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+      }
       context.restore()
 
       const task = page.render({
         canvasContext: context,
         viewport,
-        transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0]
+        transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+        background: grid ? 'rgba(0, 0, 0, 0)' : null
       })
       taskRef.current = task
       try {
@@ -367,18 +384,20 @@ function PdfPageView({ pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom })
       textLayerRef.current?.cancel()
       textLayerRef.current = null
     }
-  }, [pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom])
+  }, [pdfDoc, pageNumber, boxWidth, boxHeight, fitMode, zoom, grid])
 
   return (
     <div
-      className="pdfr-sheet"
+      className={`pdfr-sheet${grid ? ' pdfr-grid' : ''}`}
       style={{
         width: size ? `${size.width}px` : undefined,
         height: size ? `${size.height}px` : undefined,
         '--scale-factor': size ? size.scale : 1
       }}
     >
-      <canvas ref={canvasRef} className="pdfr-canvas" />
+      {/* A canvas keeps the alpha it was first asked for: turning the grid on
+          or off needs a new one. */}
+      <canvas key={grid ? 'alpha' : 'opaque'} ref={canvasRef} className="pdfr-canvas" />
       <div ref={textRef} className="textLayer" />
       <div className="pdfr-sheet-number">{pageNumber}</div>
     </div>
@@ -392,7 +411,8 @@ const defaultView = () => ({
   spread: true,
   coverAlone: true,
   fitMode: 'page',
-  zoomIndex: zoomSteps.indexOf(1)
+  zoomIndex: zoomSteps.indexOf(1),
+  grid: false
 })
 
 function newDoc({ key, title, bookId, source, dir, page, view, status = 'loading' }) {
@@ -1209,6 +1229,17 @@ export default function Library({ books = [] }) {
               </button>
               <button
                 type="button"
+                className={`pdfr-btn${doc?.grid ? ' on' : ''}`}
+                onClick={() => patchActive({ grid: !doc?.grid })}
+                disabled={!doc}
+                title="רקע שקוף"
+                aria-label="רקע שקוף"
+                aria-pressed={!!doc?.grid}
+              >
+                <IconGrid />
+              </button>
+              <button
+                type="button"
                 className="pdfr-btn"
                 onClick={toggleFullscreen}
                 title="מסך מלא"
@@ -1243,6 +1274,7 @@ export default function Library({ books = [] }) {
                     boxHeight={boxHeight}
                     fitMode={doc.fitMode}
                     zoom={zoom}
+                    grid={!!doc.grid}
                   />
                 ))}
               </div>

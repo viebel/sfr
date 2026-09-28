@@ -3030,6 +3030,19 @@ a {
   --scale-round-y: 1px;
 }
 
+/* The transparency grid: what the file leaves unpainted shows the checkerboard
+   instead of the paper. Two of the palette's own tones, nothing new. */
+.pdfr-sheet.pdfr-grid {
+  background-color: var(--paper);
+  background-image: conic-gradient(
+    var(--line) 0 25%,
+    transparent 0 50%,
+    var(--line) 0 75%,
+    transparent 0
+  );
+  background-size: 16px 16px;
+}
+
 .pdfr-canvas {
   display: block;
 }
