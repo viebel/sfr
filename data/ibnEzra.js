@@ -4,10 +4,9 @@
 export const ibnEzra = {
   id: 'ibn-ezra-shemot-3',
   nav: 'שם העצם והאותיות',
-  title: 'שם העצם והאותיות',
   author: 'ר׳ אברהם אבן עזרא',
-  work: 'פירוש הארוך על התורה',
-  place: 'שמות ג׳:ט״ו',
+  book: 'פירוש הארוך על התורה',
+  chapter: 'שמות ג׳:ט״ו · שם העצם והאותיות',
   blocks: [
     {
       type: 'verses',

@@ -4,10 +4,9 @@
 export const otsarEdenGanuz = {
   id: 'abulafia-sefirot',
   nav: 'הכל בחצי שעה',
-  title: 'הכל בחצי שעה',
   author: 'ר׳ אברהם אבולעפיא',
-  work: 'ספר אוצר עדן גנוז',
-  place: 'חלק א׳',
+  book: 'אוצר עדן גנוז',
+  chapter: 'חלק א׳ · הכל בחצי שעה',
   // The gematriot drawn under the text, in the order their colors were chosen
   numbers: [485, 540, 30, 25, 204, 55, 595, 87, 108],
   // Runs the reading does not keep: a value that lands on an ordinary word, or

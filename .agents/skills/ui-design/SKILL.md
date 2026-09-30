@@ -30,6 +30,8 @@ still holding literal colours move onto the tokens as they are touched:
   white page cannot be white too — it is `--ground`. That is what the grey is for.
 - Two grounds are outside this palette on purpose, and stay: מסך מלא reads on
   near-black (`#1b1c1e`), and מקורות is set on its own warm paper (`#f1ece2`).
+  מקורות has a closed palette of its own, the `--src-*` tokens of
+  `docs/mekorot-charter.md`, kept with the same discipline.
 
 ## Buttons
 - **Icons, not text.** Action buttons use an icon only — no text label inside the button.

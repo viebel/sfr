@@ -1246,7 +1246,7 @@ export default function Library({ books = [] }) {
           id: source.id,
           title: source.nav,
           author: source.author,
-          year: source.work,
+          year: source.book,
           href: `/mekorot?src=${encodeURIComponent(source.id)}`
         }))
       }
