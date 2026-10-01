@@ -46,12 +46,12 @@ Outside the palette, on purpose: the gematria colours (`storyColors` in `utils/s
 Two faces carry the page — the contrast between them is the design:
 
 - **Frank Ruhl Libre** — the running text, and everything set inside it.
-- **David Libre** — every voice that is not running text: title, author, heads, display lines, quotes, verses, letters, numbers, lemma, the list's titles, the hover card's phrases, the PDF's running head and folio.
+- **David Libre** — every voice that is not running text: title, author, heads, display lines, verses, letters, numbers, lemma, the list's titles, the hover card's phrases, the PDF's running head and folio.
 - The system sans (the body's) is kept for the figures of the chrome: the legend, the hover card's values.
 
 At the same size David Libre's letters stand about a tenth shorter than Frank Ruhl's (ב: 0.53em against 0.59em). So:
 
-- **A David voice inside Frank Ruhl's text is set at `1.1em`**, `line-height: 1` — a letter, a number, a verse or a lemma is as tall as the words around it and never opens its line. In the lines that are David already (head, line, quote) they keep `1em`.
+- **A David voice inside Frank Ruhl's text is set at `1.1em`**, `line-height: 1` — a letter, a number, a verse or a lemma is as tall as the words around it and never opens its line. In the lines that are David already (head, line) they keep `1em`.
 - **Every passage is set at the size of the text** — a head, a display line, a quote, the verses, a note, a table: they differ from it by face, ink or place, never by size.
 
 | role | face | size | weight | ink | notes |
@@ -64,7 +64,7 @@ At the same size David Libre's letters stand about a tenth shorter than Frank Ru
 | lead-in (`label`) | Frank Ruhl | 1.375rem | 400 | ink | set as running text, like a paragraph |
 | row (`row`) | Frank Ruhl | 1.375rem | 400 | ink | running text centered; consecutive rows stacked on the leading alone, the paragraph space after the last |
 | display line (`line`) | David | text size | 400 | ink | centered, .06em spacing |
-| quote | David | text size | 400 | ink | centered, balanced; no panel, no rule — nothing drawn around it |
+| quote | Frank Ruhl | text size | 400 | ink | the text's own style, centered and balanced; no panel, no rule — nothing drawn around it |
 | verses | David | text size | 400 | verse | vocalized, the text's leading, on `--src-panel` |
 | verse number | David | .75em | 400 | ink-soft | in parentheses |
 | table | Frank Ruhl | text size | 400 | ink / ink-soft head | figures tabular, a coloured figure 600 ink-strong |
@@ -99,9 +99,9 @@ Cards on the desk: `--src-sheet`, `--src-line` edge, radius 8px. Under the hand,
 
 ## The tools
 
-A column of icon buttons in the top-left corner of the sheet, inside the frame — the corner a page leaves free: **download as PDF**, **pages** — the two-page view — then **the charter** — a link to `/charte`, which shows this file, set on the sheet it describes.
+A column of icon buttons in the top-left corner of the sheet, inside the frame — the corner a page leaves free: **download as PDF**, then **pages** — the two-page view. The charter itself is reached from the app menu, as the screen `שפה גרפית` beside `כתיבה`: `/charte` shows this file, set on the sheet it describes.
 
-- Icons only: an arrow coming down into a tray (the ספריה's open-a-file icon turned the other way) for the PDF, two pages open on their spine (the ספריה's own two-page icon) for the view, three fanned swatches for the charter; each with its `title` and `aria-label` (`הורדת קובץ PDF`, `עמודים`, `השפה הגרפית של הדף`).
+- Icons only: an arrow coming down into a tray (the ספריה's open-a-file icon turned the other way) for the PDF, two pages open on their spine (the ספריה's own two-page icon) for the view; each with its `title` and `aria-label` (`הורדת קובץ PDF`, `עמודים`).
 - A tool that stays on — the two-page view — is pressed: `--src-line`, `--src-line-strong` edge, ink icon, `aria-pressed`.
 - 2.25rem square, radius 6px, .4rem apart: `--src-panel` with a `--src-line` edge at rest, ink-soft icon; `--src-desk`, `--src-line-strong` and ink under the hand; `--src-line` and a half-pixel nudge when pressed.
 - While the file is made the PDF button stays in place, disabled, its icon replaced by a spinner of the same size.
@@ -111,11 +111,11 @@ A column of icon buttons in the top-left corner of the sheet, inside the frame �
 
 The pages the PDF will have, shown before it is made: the same cuts (`layoutPages` in `utils/sheetPdf.js`) — but no frame, no running head and no folio: the screen shows a page, not a printed sheet.
 
-- **One spread at a time**, as a bound book opens: the first page on the right, the leaves touching at a `--src-line` spine, on `--src-sheet` with `--src-lift`. An odd count of pages gets a blank page to close the last spread.
+- **One spread at a time**, as a bound book opens: the first page on the right, the leaves touching, with no line between them, on `--src-sheet` with `--src-lift`. An odd count of pages gets a blank page to close the last spread.
 - **The page and nothing else:** the list of sources is hidden; the spread takes the full width of the desk — or, when that would make it taller than the window, the window's full height: it is always read whole, without scrolling.
 - **Turning:** from the keyboard's ← and →, or by a click on a page — the left page leads on, the right one back, as in a book; a page that can turn shows it under the hand (`w-resize`, `e-resize`).
 - **The turn slides:** the two spreads lie side by side on a track that moves between them in .42s (`cubic-bezier(.22,.61,.36,1)`) — the next comes in from the left, the one before from the right. A turn asked for mid-slide is dropped; with `prefers-reduced-motion` the spread changes at once.
-- **One control:** the tools and the arrows are gone from the view; only the two-page button stays, pressed, floating on the spread a little in from its top-left corner — it closes the view.
+- **Two controls:** the arrows are gone from the view; two stay, floating on the spread a little in from its top-left corner — the two-page button, pressed, which closes the view, and under it the PDF button — which, from the view, downloads the view: A4 landscape, one spread to a sheet of paper (the first page on the right), the view's own cuts and look, no frame, no running head, no folio, a blank page closing an odd count.
 - **On screen the text is a size up** — 24px against the sheet's 22 — with half the space between lines (`24px + (sheet leading − 24px) / 2`), and the view's pages are cut under that look (`src-print-screen`); the PDF keeps the sheet's sizes. The spread is scaled with a transform, never `zoom`, so its lines fall exactly where they were cut.
 - **Deep links:** the address says what is shown — `/mekorot?src=<id>` for the source, `&view=pages&page=<n>` for the two-page view open at the spread whose right-hand page is `n`. It is read once on load and rewritten (`replaceState`) as the reader moves.
 - The sheet stays in the page, hidden, so the view follows the source that is open. The view is for reading: no hover card, no selection count.

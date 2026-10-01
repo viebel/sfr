@@ -135,7 +135,7 @@ export default function Charte({ blocks }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <div className="src-root">
-        <AppNav current="library" />
+        <AppNav current="charte" />
         <div className="src-body">
           <article className="src-page">
             <div className="src-sheet charter" dir="ltr" lang="en">

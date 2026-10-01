@@ -64,17 +64,15 @@ export async function layoutPages(sheet, look = '') {
   return { pages, height, html }
 }
 
-export async function downloadSheetPdf(sheet, { nav, author, book, chapter }) {
-  const [{ jsPDF }, faces] = await Promise.all([import('jspdf'), sheetFonts()])
+// Each page of the sheet as a picture: the copy is measured where the page can
+// lay it out, out of sight, and drawn from the same markup under the same rules.
+async function pictures(sheet, look = '') {
+  const faces = await sheetFonts()
   await document.fonts.load('400 16px "David Libre"', 'אב 12')
-
-  // The copy is measured where the page can lay it out, out of sight...
-  const { host, copy, height, pages, done } = await setAside(sheet)
+  const { host, copy, height, pages, done } = await setAside(sheet, look)
   try {
-    // ...and drawn from the same markup, under the same rules.
     const markup = pictureMarkup(host, copy, faces)
     const paper = getComputedStyle(copy).backgroundColor
-
     // Safari draws the first picture before the fonts it carries are ready;
     // one drawn and thrown away readies them for the pages that count.
     await draw(markup, pages[0], height, paper)
@@ -83,37 +81,70 @@ export async function downloadSheetPdf(sheet, { nav, author, book, chapter }) {
       const canvas = await draw(markup, page, height, paper)
       images.push({ data: canvas.toDataURL('image/jpeg', QUALITY), height: page.bottom - page.top })
     }
-
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true })
-    const soft = token('--src-ink-soft')
-    const head = line([author, book].filter(Boolean).join(' · '), { width: COLUMN, height: 24, size: 15, color: soft })
-    images.forEach((image, n) => {
-      if (n > 0) pdf.addPage('a4', 'portrait')
-      pdf.setDrawColor(token('--src-line-strong'))
-      pdf.setLineWidth(0.6)
-      pdf.rect(FRAME, FRAME, PAPER.width - 2 * FRAME, PAPER.height - 2 * FRAME, 'S')
-      pdf.addImage(image.data, 'JPEG', MARGIN.side, MARGIN.top, COLUMN * SCALE, image.height * SCALE)
-      if (images.length === 1) return
-      // The running head from the second page on, the folio on every page, each
-      // centred in the band between the text and the frame.
-      if (n > 0) centre(pdf, head, 'running-head', COLUMN, 24, (FRAME + MARGIN.top) / 2)
-      const folio = line(String(n + 1), { width: 60, height: 24, size: 15, color: soft })
-      centre(pdf, folio, `folio-${n}`, 60, 24, (2 * PAPER.height - MARGIN.bottom - FRAME) / 2)
-    })
-
-    pdf.setProperties({
-      title: pdfText([book, chapter].filter(Boolean).join(' · ')),
-      author: pdfText(author),
-      subject: pdfText(nav),
-      creator: pdfText('ס.פ.ר')
-    })
-    pdf.setLanguage('he')
-    // A Hebrew book: two pages side by side are read from the right.
-    pdf.viewerPreferences({ Direction: 'R2L' })
-    pdf.save(fileName(nav))
+    return images
   } finally {
     done()
   }
+}
+
+// The file's properties, and the right-to-left order of a Hebrew book.
+function finish(pdf, { nav, author, book, chapter }) {
+  pdf.setProperties({
+    title: pdfText([book, chapter].filter(Boolean).join(' · ')),
+    author: pdfText(author),
+    subject: pdfText(nav),
+    creator: pdfText('ס.פ.ר')
+  })
+  pdf.setLanguage('he')
+  // A Hebrew book: two pages side by side are read from the right.
+  pdf.viewerPreferences({ Direction: 'R2L' })
+}
+
+// The sheet as printed: A4 portrait, a page to a sheet of paper, inside the
+// frame, under a running head and over a folio.
+export async function downloadSheetPdf(sheet, source) {
+  const { author, book, nav } = source
+  const [{ jsPDF }, images] = await Promise.all([import('jspdf'), pictures(sheet)])
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true })
+  const soft = token('--src-ink-soft')
+  const head = line([author, book].filter(Boolean).join(' · '), { width: COLUMN, height: 24, size: 15, color: soft })
+  images.forEach((image, n) => {
+    if (n > 0) pdf.addPage('a4', 'portrait')
+    pdf.setDrawColor(token('--src-line-strong'))
+    pdf.setLineWidth(0.6)
+    pdf.rect(FRAME, FRAME, PAPER.width - 2 * FRAME, PAPER.height - 2 * FRAME, 'S')
+    pdf.addImage(image.data, 'JPEG', MARGIN.side, MARGIN.top, COLUMN * SCALE, image.height * SCALE)
+    if (images.length === 1) return
+    // The running head from the second page on, the folio on every page, each
+    // centred in the band between the text and the frame.
+    if (n > 0) centre(pdf, head, 'running-head', COLUMN, 24, (FRAME + MARGIN.top) / 2)
+    const folio = line(String(n + 1), { width: 60, height: 24, size: 15, color: soft })
+    centre(pdf, folio, `folio-${n}`, 60, 24, (2 * PAPER.height - MARGIN.bottom - FRAME) / 2)
+  })
+  finish(pdf, source)
+  pdf.save(fileName(nav))
+}
+
+// The two-page view as a file: A4 landscape, each sheet of paper one spread —
+// the view's own pages, cut and set as the screen shows them (`look`), the
+// first on the right, a blank page closing an odd count. No frame, no running
+// head, no folio: what the view shows, and nothing more.
+export async function downloadSpreadPdf(sheet, source, look) {
+  const [{ jsPDF }, images] = await Promise.all([import('jspdf'), pictures(sheet, look)])
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4', compress: true })
+  // A leaf is half the landscape sheet, the page it was cut for scaled down to it.
+  const half = PAPER.height / 2
+  const k = half / PAGE.width
+  for (let n = 0; n < images.length; n += 2) {
+    if (n > 0) pdf.addPage('a4', 'landscape')
+    ;[images[n], images[n + 1]].forEach((image, side) => {
+      if (!image) return
+      const x = side === 0 ? half : 0
+      pdf.addImage(image.data, 'JPEG', x + PAGE.side * k, PAGE.top * k, PAGE.column * k, image.height * k)
+    })
+  }
+  finish(pdf, source)
+  pdf.save(fileName(`${source.nav} — עמודים`))
 }
 
 // --- where the pages break ---------------------------------------------------
@@ -216,7 +247,7 @@ function paginate(units, height) {
 function pictureMarkup(host, copy, faces) {
   const inherited = getComputedStyle(host)
   const wrapper = document.createElement('div')
-  wrapper.className = 'src-print'
+  wrapper.className = host.className
   wrapper.setAttribute('dir', 'rtl')
   wrapper.setAttribute('lang', 'he')
   wrapper.setAttribute(

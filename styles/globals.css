@@ -3765,8 +3765,9 @@ a {
   margin: 0.3rem 0;
 }
 
-/* A passage the author quotes: set apart by its face and its place — centered,
-   David Libre, a line of air above and below — and by nothing drawn around it. */
+/* A passage the author quotes: in the text's own face, ink and size, set apart
+   by its place alone — centered, a line of air above and below — and by
+   nothing drawn around it. */
 /* Lines of the text set one under the other — a short list of statements the
    author lays out as a table: running text, centered, with no paragraph space
    between them, only the leading; the space comes back after the last. */
@@ -3782,7 +3783,6 @@ a {
 
 .src-blockquote {
   margin: 1.5rem 0;
-  font-family: 'David Libre', serif;
   color: var(--src-ink);
   text-align: center;
   text-align-last: center;
@@ -3883,14 +3883,14 @@ a {
 /* A David voice inside Frank Ruhl's text is set up by a tenth, so a letter, a
    number or a verse stands as tall as the words around it; at line-height 1,
    so the larger glyphs never open the line they sit on. In the lines that are
-   David Libre already — heads, display lines, quotes — they are at
+   David Libre already — heads, display lines — they are at
    home and keep the size of their line. */
 .src-text :is(.src-letter, .src-num, .src-verse-inline, .src-lemma) {
   font-size: 1.1em;
   line-height: 1;
 }
 
-.src-text :is(.src-head, .src-line, .src-blockquote) :is(.src-letter, .src-num, .src-verse-inline) {
+.src-text :is(.src-head, .src-line) :is(.src-letter, .src-num, .src-verse-inline) {
   font-size: 1em;
 }
 
@@ -3987,11 +3987,14 @@ a {
 
 /* The way back to the sheet, the one control the view keeps, floats on the
    spread itself, a little in from its top-left corner. */
-.src-spread-close {
+.src-spread-tools {
   position: absolute;
   top: 1.2rem;
   left: 1.2rem;
   z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 /* On screen the view sets the text a size up (24px against the sheet's 22)
@@ -4071,11 +4074,6 @@ a {
   position: relative;
   flex-shrink: 0;
   background: var(--src-sheet);
-}
-
-/* The spine: the one line between the two pages */
-.src-leaf + .src-leaf {
-  border-right: 1px solid var(--src-line);
 }
 
 .src-leaf-text {

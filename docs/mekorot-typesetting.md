@@ -34,7 +34,7 @@ A block is `{ type, text }`, except `verses`. The type is a role in the page, no
 | `list` | one item of a list | gold lozenge in the margin, no number in the text |
 | `line` | a display line — permutation tables and the like | centered, letter-spaced |
 | `row` | a line of the text set as one of a short column of statements (`אבגד מתגלגל ו פעמים. א בראש התיבה`, then the next) | running text, centered, no paragraph space between consecutive rows |
-| `quote` | a passage the author quotes from another book | centered, David Libre, nothing drawn around it |
+| `quote` | a passage the author quotes from another book | running text, centered, nothing drawn around it |
 | `table` | the figures a note reckons with | `{ type: 'table', head: [...], rows: [[...]] }`, small, ruled, first cell of a row is its label; like an `intro`, the last one before the text sits above the rule |
 | `verses` | the biblical passage a commentary hangs on | `{ type: 'verses', verses: [{ n, text }] }`, vocalized, brown |
 
@@ -100,7 +100,7 @@ Straight ASCII quotes around a phrase (`'תק״ם'`) are not a mark of anything.
 
 The look of the sheet — its tokens, its type scale, its spacing, the gematria rules, the PDF — is `docs/mekorot-charter.md`. What a source needs to know of it:
 
-- Running text is Frank Ruhl Libre `1.375rem`; every voice that is not running text — heads, display lines, quotes, letters, numbers, verses, titles — is David Libre. That contrast between the two faces is what carries the page.
+- Running text is Frank Ruhl Libre `1.375rem`; every voice that is not running text — heads, display lines, letters, numbers, verses, titles — is David Libre. That contrast between the two faces is what carries the page.
 - Each kind of mark has its token: `--src-letter` blue for `{…}`, `--src-number` ochre for `[…]`, `--src-verse` brown for `«…»` and the lemma, `--src-ink-soft` for a reference and for an editorial note. A source never brings a colour of its own.
 - The sheet is `46rem` wide, framed by a thin inner rule, and the page scrolls inside `.src-page` — the window itself never scrolls. The same sheet, set at the width of an A4 column, is what the PDF button downloads.
 

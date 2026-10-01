@@ -18,7 +18,9 @@ export const SFARIM = [
     label: 'סֵפֶר',
     screens: [
       { id: 'library', label: 'ספריה', href: '/library' },
-      { id: 'story', label: 'כתיבה', tab: 'story' }
+      { id: 'story', label: 'כתיבה', tab: 'story' },
+      // The graphic charter of the מקורות pages (docs/mekorot-charter.md)
+      { id: 'charte', label: 'שפה גרפית', href: '/charte' }
     ]
   },
   {

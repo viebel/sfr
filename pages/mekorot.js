@@ -1,5 +1,4 @@
 import Head from 'next/head'
-import Link from 'next/link'
 import AppNav from '../components/AppNav'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sources } from '../data/sources'
@@ -7,7 +6,7 @@ import { markReferences, parseMarked, tokenizeMarked } from '../utils/sourceText
 import { analyzeStory, buildLegend } from '../utils/storyAnalysis'
 import { calculateGematria } from '../utils/gematria'
 import { edgePunctuation } from '../utils/storyAnalysis'
-import { PAGE, downloadSheetPdf, layoutPages } from '../utils/sheetPdf'
+import { PAGE, downloadSheetPdf, downloadSpreadPdf, layoutPages } from '../utils/sheetPdf'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -27,28 +26,6 @@ const IconSpread = () => (
   >
     <path d="M12 6.2C10.5 5.1 8.6 4.5 6.4 4.5H3.5v13h2.9c2.2 0 4.1.6 5.6 1.7 1.5-1.1 3.4-1.7 5.6-1.7h2.9v-13h-2.9c-2.2 0-4.1.6-5.6 1.7z" />
     <path d="M12 6.2v13" />
-  </svg>
-)
-
-// Three swatches fanned out from one pin: the charter the sheet is set by — its
-// tones, its type, its measures.
-const IconCharter = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <rect x="4" y="3.5" width="6" height="17" rx="1.5" />
-    <path d="M10 8.2 14.3 5.7a1.5 1.5 0 0 1 2 .55l2.4 4.2a1.5 1.5 0 0 1-.55 2L10 17.2" />
-    <path d="M7 20.5h11.5a1.5 1.5 0 0 0 1.5-1.5v-4.5a1.5 1.5 0 0 0-1.5-1.5h-2" />
-    <circle cx="7" cy="16.8" r="1" />
   </svg>
 )
 
@@ -503,7 +480,9 @@ export default function Mekorot() {
     setHoverTip(null)
     try {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      await downloadSheetPdf(sheet, source)
+      // From the two-page view, the file is the view: landscape, a spread to a sheet.
+      if (spread) await downloadSpreadPdf(sheet, source, SPREAD_LOOK)
+      else await downloadSheetPdf(sheet, source)
     } catch (error) {
       console.error('PDF export failed', error)
     } finally {
@@ -625,7 +604,7 @@ export default function Mekorot() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // The sheet's tools: the PDF, the two-page view, the charter. They sit at the
+  // The sheet's tools: the PDF and the two-page view. They sit at the
   // top-left of whatever is being read — the sheet's corner, or beside the
   // spread — and never leave the page.
   const tools = (
@@ -651,9 +630,6 @@ export default function Mekorot() {
       >
         <IconSpread />
       </button>
-      <Link href="/charte" className="src-tool" title="השפה הגרפית של הדף" aria-label="השפה הגרפית של הדף">
-        <IconCharter />
-      </Link>
     </div>
   )
 
@@ -688,20 +664,34 @@ export default function Mekorot() {
           <article className="src-page" ref={pageRef}>
             {spread && (
               <div className="src-spread">
-                {/* The one control the view keeps: the way back to the sheet,
-                    floating in the corner. The pages turn from the keyboard's
-                    arrows, or by a click on a page — the left one leads on,
-                    the right one back, as in a book. */}
-                <button
-                  type="button"
-                  className="src-tool on src-spread-close"
-                  onClick={() => setSpread(false)}
-                  aria-pressed="true"
-                  title="חזרה לדף"
-                  aria-label="עמודים"
-                >
-                  <IconSpread />
-                </button>
+                {/* The two controls the view keeps, floating in its corner: the
+                    way back to the sheet, and the PDF of the pages shown. The
+                    pages turn from the keyboard's arrows, or by a click on a
+                    page — the left one leads on, the right one back, as in a
+                    book. */}
+                <div className="src-spread-tools">
+                  <button
+                    type="button"
+                    className="src-tool on"
+                    onClick={() => setSpread(false)}
+                    aria-pressed="true"
+                    title="חזרה לדף"
+                    aria-label="עמודים"
+                  >
+                    <IconSpread />
+                  </button>
+                  <button
+                    type="button"
+                    className="src-tool"
+                    onClick={downloadPdf}
+                    disabled={exporting}
+                    aria-busy={exporting}
+                    title="הורדת קובץ PDF"
+                    aria-label="הורדת קובץ PDF"
+                  >
+                    {exporting ? <span className="src-tool-spin" aria-hidden="true" /> : <IconDownload />}
+                  </button>
+                </div>
                 {/* Scaled with a transform, not `zoom`: a zoom lays the text out
                     again at the smaller size, and its lines no longer fall
                     where the pages were cut. */}
