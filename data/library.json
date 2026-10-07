@@ -126,6 +126,16 @@
       "dir": "rtl"
     },
     {
+      "id": "pyrvsh-hr-mgrmyz-l-spr-ytsyrh",
+      "file": "pyrvsh-hr-mgrmyz-l-spr-ytsyrh.pdf",
+      "source": "books/אלעז מגרמזיא ספר יצירה.pdf",
+      "title": "פירוש הר\"א מגרמיזא על ספר יצירה",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl"
+    },
+    {
       "id": "shaarei-tsedek",
       "file": "shaarei-tsedek.pdf",
       "title": "שערי צדק וסולם עליה",
@@ -164,7 +174,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr"
+      "dir": "ltr",
+      "detached": true
     },
     {
       "id": "dictionaire-hebreu-philosophique",
@@ -249,7 +260,18 @@
       "kind": "book",
       "dir": "ltr",
       "pages": 901,
-      "source": "books/art of programming 4a - knuth.pdf"
+      "source": "books/art of programming 4a - knuth.pdf",
+      "detached": true
+    },
+    {
+      "id": "the-art-of-programming-4a-knuth",
+      "file": "the-art-of-programming-4a-knuth.pdf",
+      "source": "books/the art of programming 4a - knuth.pdf",
+      "title": "the art of programming 4a - knuth",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr"
     },
     {
       "id": "the-earliest-version-of-sefer-yeirah-te",

@@ -25,12 +25,12 @@ Declared once, in `:root`, as `--src-*`. Contrast is measured on `--src-sheet`.
 | `--src-line` | `#e6dfd0` | the one line: the sheet's edge and frame, cards, table rules, panels, the separator under a note |
 | `--src-line-strong` | `#cdc2ac` | a line that answers the hand (hover), the rule under a table's head, the hover card's edge, the PDF's frame |
 | `--src-ink-strong` | `#000` | a source's name in the list, a figure the legend colours — black, as the text is — 20.9:1 |
-| `--src-ink` | `#000` | the text, in black: heads, display lines, quotes, legend values — 20.9:1 |
+| `--src-ink` | `#000` | the text, in black: heads, display lines, quotes — 20.9:1 |
 | `--src-ink-soft` | `#6b6155` | everything muted: the list's author and book, notes, references, verse numbers, table heads — 6:1, and never fainter |
 | `--src-gold` | `#c9a227` | ornament only: the lozenge of a list item, the marker of the open source |
 | `--src-gold-soft` | `#d9c58a` | the open source card's edge |
-| `--src-letter` | `#1c5b7a` | `{…}` a letter the text speaks about — 7.3:1 |
-| `--src-number` | `#8a6a12` | `[…]` a number written with letters — 5:1 |
+| `--src-letter` | `#465963` | `{…}` a letter the text speaks about, in slate blue — 7.2:1 |
+| `--src-number` | `#785a10` | `[…]` a number written with letters, and the legend's numeric values — 6.3:1 |
 | `--src-verse` | `#7a3b12` | `«…»` a verse, the verses block, the lemma — 8.4:1 |
 | `--src-lift` | `0 2px 16px rgba(70,55,25,.08)` | the sheet off the desk — the only shadow on the page… |
 | `--src-float` | `0 8px 22px rgba(70,55,25,.16)` | …except the hover card's, which floats over the text |
@@ -43,21 +43,24 @@ Outside the palette, on purpose: the gematria colours (`storyColors` in `utils/s
 
 ## Type
 
-Two faces carry the page — the contrast between them is the design:
+Two faces carry the page — the contrast between them is the design — and a third, of fixed width, sets the letters and numbers:
 
-- **Frank Ruhl Libre** — the running text, and everything set inside it.
-- **David Libre** — every voice that is not running text: title, author, heads, display lines, verses, letters, numbers, lemma, the list's titles, the hover card's phrases, the PDF's running head and folio.
+- **Frank Ruhl Libre** — the running text and the title block (book, chapter, author).
+- **Cousine** — a letter the text speaks about, `{…}`, and a number written with letters, `[…]`: the same bold face of fixed width, at the text's size, distinguished by colour.
+- **David Libre** — heads, display lines, verses, lemma, the list's titles, the hover card's phrases, the PDF's running head and folio.
 - The system sans (the body's) is kept for the figures of the chrome: the legend, the hover card's values.
 
 At the same size David Libre's letters stand about a tenth shorter than Frank Ruhl's (ב: 0.53em against 0.59em). So:
 
-- **A David voice inside Frank Ruhl's text is set at `1.1em`**, `line-height: 1` — a letter, a number, a verse or a lemma is as tall as the words around it and never opens its line. In the lines that are David already (head, line) they keep `1em`.
+- **A David voice inside Frank Ruhl's text is set at `1.1em`**, `line-height: 1` — a verse or a lemma is as tall as the words around it and never opens its line. In the lines that are David already (head, line) they keep `1em`.
 - **Every passage is set at the size of the text** — a head, a display line, a quote, the verses, a note, a table: they differ from it by face, ink or place, never by size.
 
 | role | face | size | weight | ink | notes |
 | --- | --- | --- | --- | --- | --- |
-| title: book, chapter, author | David | 1.6rem | 400 | ink | three lines in that order, one style for all three; leading 1.4, balanced |
-| legend | sans | 1.15rem | value 600 | ink | each value underlined in its colour (3px, as wide as the figure); no count |
+| title: book | Frank Ruhl | 1.85rem | 400 | ink | centered, leading 1.15, balanced |
+| subtitle: chapter | Frank Ruhl | 1.25rem, 1.375rem in the two-page view | 400 | ink | centered, .1rem after the book, leading 1.2, balanced |
+| author | Frank Ruhl | 1.25rem, 1.375rem in the two-page view | 400 | ink | centered, .1rem after the chapter, leading 1.2, balanced |
+| legend | sans | 1.15rem | value 600 | number | ochre figures, each underlined in its gematria colour (2px, as wide as the figure); no count |
 | running text (`para`, `list`) | Frank Ruhl | 1.375rem (22px) | 400 | ink | leading 1.9 or more, justified, last line right, `text-wrap: pretty` |
 | note (`intro`) | Frank Ruhl | text size | 400 | ink-soft | the text's leading |
 | head | David | text size | 400 | ink | centered, .03em spacing, balanced |
@@ -69,8 +72,8 @@ At the same size David Libre's letters stand about a tenth shorter than Frank Ru
 | verse number | David | .75em | 400 | ink-soft | in parentheses |
 | table | Frank Ruhl | text size | 400 | ink / ink-soft head | figures tabular, a coloured figure 600 ink-strong |
 | reference `(…)` | inherits | .8em | 400 | ink-soft | plain size inside a note |
-| letter `{…}` | David | 1.1em | 700 | letter | .06em spacing |
-| number `[…]` | David | 1.1em | 500 | number | .05em spacing, value in the title |
+| letter `{…}` | Cousine (fixed width) | text size | 700 | letter | every letter 0.6em wide, so letters stand in columns; a string never breaks |
+| number `[…]` | Cousine (fixed width) | text size | 700 | number | same setting as a letter; a number never breaks; value in the title |
 | verse `«…»`, lemma | David | 1.1em | 400 / 700 | verse | |
 
 A letter or a number glued to the prefix before it (`מ[ד׳]`, `ב{ה״א}`) gets a hair of space, `.05em`, before it (`.src-glued`) — enough to read `מ·ד׳`, never as wide as a word space.
@@ -81,13 +84,17 @@ Signs: geresh and gershayim show only in an abbreviation (`ואע״פ`, `י״י`
 
 - **The sheet** is 46rem wide at most, padded 2.6rem 2.8rem 3rem: a line of text holds about 65–70 letters.
 - **The leading** is `--src-leading`, set by `pages/mekorot.js` on `.src-text`: `max(1.9, 1.4 + 0.27 × lanes)`, where lanes is the deepest stack of gematria rules on the sheet. The rules of a line never reach the letters of the next.
+- **Indent:** any block can be set in by twelfths of the column, from the right — `indent: 4` is a third, at most 9 (three quarters); in the composition panel, − and + beside the block's role.
+- **Space after a block:** set per block in quarters of 1.15rem, from 0 to 8 (`space`), the next block's own top margin then dropped; unset, the spacing below holds.
+- **Space before a block:** `spaceBefore`, in quarters of 1.15rem from 0 with no upper setting limit, sets its top margin. Unlike automatic spacing, it is retained at the top of a page, added to the page margin and included in the available-height calculation; a gap larger than a page continues across blank pages. Separate before/after controls appear in each composition card.
+- **Page break before a block:** the composition panel's page-break icon toggles `pageBreakBefore`. It shows a pressed state when enabled. The block starts a new page in the two-page view and exports; an explicit break overrides automatic grouping, and never adds an extra blank page when the block already begins a page.
 - **Blocks:** a paragraph is followed by 1.15rem; an item by .7rem; heads by .25rem, and the first text after heads by 1.8rem; a lead-in is spaced as a paragraph; the quote 1.5rem around; the verses 2rem below. The text after a note or a table opens with 2rem, a `--src-line` rule, and 1.6rem.
-- **The header** keeps 2.2rem below it; its three title lines — book, chapter, author, all balanced — stay 2.6rem clear of each side, the corner of the tools.
+- **The header** keeps 1.2rem below it; its three title lines — book, chapter, author, all balanced — stay 2.6rem clear of each side, the corner of the tools. The three lines form a compact group; chapter and author share the same size, one step below the text, and the same spacing. The legend follows after 1.6rem, closer to the text it introduces than to the author.
 
 ## The gematria layer
 
-- **The rule** is 3px, in its value's colour, painted as a background of `.src-token-ink` — the word without the punctuation at its edges, so a comma is never underlined.
-- **Lane 0 sits against the word**: its top 2px above the foot of the word's box, i.e. under the descent of ק and ן with a little air. Each further lane is 5px lower. Every counted word on the sheet takes the same padding (`5 × (lanes − 1) + 2px`), so a lane runs level from word to word.
+- **The rule** is 2px throughout the text, tables and legend, in its value's colour, painted as a background of `.src-token-ink` — the word without the punctuation at its edges, so a comma is never underlined.
+- **Lane 0 sits against the word**: its top 2px above the foot of the word's box, i.e. under the descent of ק and ן with a little air. Each further lane is 5px lower. Every counted word on the sheet takes the same padding (`5 × (lanes − 1) + 1px`), so a lane runs level from word to word.
 - **A counted word keeps the size of the text.** The rule is what says it is counted.
 - **A selection** tints, in the grey of the ספור tab, every run on the sheet that adds up to the selected value; the tint is a background too, so nothing moves.
 - **The hover card** (`.src-tip`): `--src-sheet`, `--src-line-strong` edge, radius 8px, `--src-float`; values in sans 600, phrases in David `--src-ink-soft`. One card, placed in JS and kept inside the sheet on both axes.
@@ -99,7 +106,7 @@ Cards on the desk: `--src-sheet`, `--src-line` edge, radius 8px. Under the hand,
 
 ## The tools
 
-A column of icon buttons in the top-left corner of the sheet, inside the frame — the corner a page leaves free: **download as PDF**, then **pages** — the two-page view. The charter itself is reached from the app menu, as the screen `שפה גרפית` beside `כתיבה`: `/charte` shows this file, set on the sheet it describes.
+A column of icon buttons in the top-left corner of the sheet, inside the frame — the corner a page leaves free: **download as PDF**, then **pages** — the two-page view — and, on a local checkout only, **composition** (a pen on a line), which floats in the bottom-left corner of the window rather than in the column, so it is in reach wherever the sheet is scrolled to, and opens the composition panel in place of the list of sources: one card per block, its role, its text, and the tools to move, split, merge, insert and delete; the block whose card has the hand is outlined on the sheet in `--src-gold-soft`, and the spaces of a layout — at the head of a line, two or more in a row — show a `--src-gold` dot under each space, a ↵ at each line break (never in the PDF). The charter itself is reached from the app menu, as the screen `שפה גרפית` beside `כתיבה`: `/charte` shows this file, set on the sheet it describes.
 
 - Icons only: an arrow coming down into a tray (the ספריה's open-a-file icon turned the other way) for the PDF, two pages open on their spine (the ספריה's own two-page icon) for the view; each with its `title` and `aria-label` (`הורדת קובץ PDF`, `עמודים`).
 - A tool that stays on — the two-page view — is pressed: `--src-line`, `--src-line-strong` edge, ink icon, `aria-pressed`.
@@ -109,11 +116,15 @@ A column of icon buttons in the top-left corner of the sheet, inside the frame �
 
 ### The two-page view
 
+On a local checkout, the composition button also works in this view. The editor opens alongside the spread and edits update the pagination. Focusing a block opens its spread; clicking the text focuses its editor. While editing, clicks select blocks rather than turn pages, and navigation keys inside an editable field move the caret. The page controls remain available.
+
 The pages the PDF will have, shown before it is made: the same cuts (`layoutPages` in `utils/sheetPdf.js`) — but no frame, no running head and no folio: the screen shows a page, not a printed sheet.
 
 - **One spread at a time**, as a bound book opens: the first page on the right, the leaves touching, with no line between them, on `--src-sheet` with `--src-lift`. An odd count of pages gets a blank page to close the last spread.
+- **The first page starts higher:** its top margin is 12mm, half the 24mm of later pages. The title and text rise together; the extra height is available to the first page's content. The exports use the same margins.
 - **The page and nothing else:** the list of sources is hidden; the spread takes the full width of the desk — or, when that would make it taller than the window, the window's full height: it is always read whole, without scrolling.
 - **Turning:** from the keyboard's ← and →, or by a click on a page — the left page leads on, the right one back, as in a book; a page that can turn shows it under the hand (`w-resize`, `e-resize`).
+- **Every spread in reach:** when there is more than one, a bar floats at the foot of the window with a button per spread (`1–2`, `3–4`…, the first on the right), the one shown pressed; a click goes straight there, with the slide. Home and End go to the first and the last.
 - **The turn slides:** the two spreads lie side by side on a track that moves between them in .42s (`cubic-bezier(.22,.61,.36,1)`) — the next comes in from the left, the one before from the right. A turn asked for mid-slide is dropped; with `prefers-reduced-motion` the spread changes at once.
 - **Two controls:** the arrows are gone from the view; two stay, floating on the spread a little in from its top-left corner — the two-page button, pressed, which closes the view, and under it the PDF button — which, from the view, downloads the view: A4 landscape, one spread to a sheet of paper (the first page on the right), the view's own cuts and look, no frame, no running head, no folio, a blank page closing an odd count.
 - **On screen the text is a size up** — 24px against the sheet's 22 — with half the space between lines (`24px + (sheet leading − 24px) / 2`), and the view's pages are cut under that look (`src-print-screen`); the PDF keeps the sheet's sizes. The spread is scaled with a transform, never `zoom`, so its lines fall exactly where they were cut.
@@ -124,7 +135,7 @@ The pages the PDF will have, shown before it is made: the same cuts (`layoutPage
 
 Made in the browser by `utils/sheetPdf.js`, downloaded in one click, named after the source's short name (`nav`).
 
-- **Paper:** A4 portrait, white. Margins 24mm at the sides and top, 26mm at the foot. A `--src-line-strong` frame, .6pt, 11mm from the edge.
+- **Paper:** A4 portrait, white. Margins 24mm at the sides, 12mm at the top of the first page and 24mm on later pages, 26mm at the foot. A `--src-line-strong` frame, .6pt, 11mm from the edge.
 - **Scale:** 1 CSS px = .6pt, so the 22px text is set at 13pt; the sheet is set again at the width of the text column (≈765px), off screen, under the same stylesheet.
 - **Pictures:** each page is a picture of the sheet at 2 image pixels per CSS pixel (≈220 dpi), JPEG .92. The text of the PDF cannot be selected; everything else — faces, colours, rules — is the screen's.
 - **Breaks:** never through a line; the title page whole; a paragraph leaves at least two lines at the foot of a page and two at the head of the next; a head or a lead-in stays with what follows it; a quote, the verses and a table go whole while they fit on a page. A page starts at its first line.

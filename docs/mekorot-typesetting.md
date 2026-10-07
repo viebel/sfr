@@ -4,7 +4,11 @@ Everything a source needs in order to look like the other ones: the data it is w
 
 ## Where a source lives
 
-One source is one exported object. Short ones sit in `data/sources.js`; anything longer gets its own file next to it (`data/ibnEzra.js`, `data/otsarEdenGanuz.js`) and is imported there. `sources` is the ordered array the page's side list shows, so a new entry's position in it is its position on screen.
+One source is one exported object. Its fields sit in `data/sources.js`, or in a file of its own next to it (`data/ibnEzra.js`, `data/otsarEdenGanuz.js`) imported there; **its blocks sit in `data/blocks/<id>.json`**, which the object imports. `sources` is the ordered array the page's side list shows, so a new entry's position in it is its position on screen.
+
+**The composition tool** edits those blocks in the browser: on a local checkout (`yarn dev`) the sheet's pen button opens a panel of the source's blocks — role, text, move, split at the caret, merge with the next, insert, delete — and the sheet follows the draft as it changes. Every change is saved on its own — written to `data/blocks/<id>.json` (`pages/api/composition.js`, development only) a second at most after it, one write for a burst of changes, and whatever is pending when the panel closes; the diff is then committed like any other. The button does not exist on the deployed site.
+
+**Spaces and line breaks are kept as typed.** Spaces at the head of a line, two or more in a row, and a line break inside a block are part of the layout: the page shows them (`white-space: pre-wrap` on `.src-text`), on the sheet, in the two-page view and in the PDF. While composing they are shown — a gold dot under each such space, a ↵ at each break; splitting and merging blocks keep them, dropping only the single space that parted two words at the cut.
 
 ```js
 export const someSource = {
@@ -15,7 +19,7 @@ export const someSource = {
   author: 'ר׳ אברהם אבולעפיא',  // the title, line 3
   numbers: [485, 540, 55],     // optional: turns the gematria layer on
   hide: ['30|כי'],             // optional: runs the reading does not keep
-  blocks: [ /* … */ ]
+  blocks                        // import blocks from './blocks/abulafia-sefirot.json'
 }
 ```
 
@@ -33,6 +37,7 @@ A block is `{ type, text }`, except `verses`. The type is a role in the page, no
 | `para` | running text | justified, last line to the right |
 | `list` | one item of a list | gold lozenge in the margin, no number in the text |
 | `line` | a display line — permutation tables and the like | centered, letter-spaced |
+| `grid` | a row of letters or pairs set in columns, `{ type: 'grid', cells: [...] }` — two grids of the same count line up column for column | centered cells of one width (3.6rem) |
 | `row` | a line of the text set as one of a short column of statements (`אבגד מתגלגל ו פעמים. א בראש התיבה`, then the next) | running text, centered, no paragraph space between consecutive rows |
 | `quote` | a passage the author quotes from another book | running text, centered, nothing drawn around it |
 | `table` | the figures a note reckons with | `{ type: 'table', head: [...], rows: [[...]] }`, small, ruled, first cell of a row is its label; like an `intro`, the last one before the text sits above the rule |
@@ -47,18 +52,28 @@ Two block-level habits:
 - **A list item carries no marker.** The original's `א.` / `ב.` is dropped; the lozenge is the marker.
 - **A paragraph is one line in the data.** Source texts are pasted from a PDF and arrive broken at the column width; join those lines back into one string. A blank line in the original is a new block, not a `\n`.
 
+**The space after any block can be set**: `space: n` makes the gap to the next block n quarters of the paragraph space (1.15rem) — 0 sets the next block right under it, 8 is twice the usual; unset, the block keeps its own. The next block then keeps no top margin of its own unless it has an explicit `spaceBefore`. In the composition panel, use the controls for the space after the block.
+
+**The space before any block can be set**: `spaceBefore: n` sets its top margin in the same quarters, from 0 with no upper setting limit. The composition panel has separate controls before and after a block. The explicit top margin takes precedence over the preceding block's top-margin reset. At an automatic or forced page break, this space is kept above the block, in addition to the page's top margin, in both the two-page view and exports. Gaps larger than a page continue across blank pages. Splitting keeps it only on the first part.
+
+**Any block can be set in**: `indent: n` moves its lines n twelfths of the column in, from the side they start on (the right) — `indent: 4` is a third. From 1 to 9 (three quarters); the composition panel's − and + change it a twelfth at a time.
+
+**Any block can start a new page**: `pageBreakBefore: true` forces a page break before it in the two-page view and both PDF exports. The composition panel's page-break icon toggles this setting; the continuous sheet stays continuous. A break on the first text block leaves the title on its own page. Splitting a block keeps the break on its first part; merging across a break is disabled until the break is removed.
+
 ## The marks inside the text
 
 `utils/sourceText.js` defines four inline marks. They are never displayed — they choose a setting.
 
 | mark | for | set as |
 | --- | --- | --- |
-| `{…}` | a letter, or a run of letters, the text is speaking *about* | David Libre bold, blue `#1c5b7a`, letter-spaced |
-| `[…]` | a number written with letters | David Libre, ochre `#8a6a12`, its value in the hover title |
+| `{…}` | a letter, or a run of letters, the text is speaking *about* | Cousine bold — a face of fixed width — slate blue `#465963` |
+| `[…]` | a number written with letters | Cousine bold, like a letter, dark ochre `#785a10`, its value in the hover title |
 | `«…»` | a verse quoted inside the commentary | David Libre, brown `#7a3b12` |
 | `(…)` | a source reference | detected on its own, small and grey — do not mark it |
 
 `block.lemma` sets the opening words a commentary hangs on, in bold brown.
+
+**The space after a `{…}` or a `[…]` never breaks** — after a mark of punctuation that follows it too (`{ב״א}, וכן`): a letter or a number is never left alone at the end of a line. The page sets it as a no-break space (`bind()` in `pages/mekorot.js`), and the gematria analysis reads the same text, so the data keeps ordinary spaces.
 
 What goes in which is a reading decision, and it is the one to get right:
 
@@ -94,14 +109,14 @@ Straight ASCII quotes around a phrase (`'תק״ם'`) are not a mark of anything.
 - **Selecting text picks its value.** A word, a run of words or a figure selected anywhere on the sheet is counted (a figure as itself), and every run on the page that adds up to it is tinted grey, as on the ספור tab — words in the analyzed blocks, `[…]` numbers in intros and table labels, table figures. The card shows the value and how many there are; a click anywhere clears it.
 - **The legend rows are even.** `.src-legend` is a grid whose column count comes from the number of colors (`--legend-cols`, at most six per row), so nine values read as 5 + 4 instead of wherever the wrap happened to fall.
 
-`hide` drops the runs a reading does not keep — a value that lands on an ordinary word, or on a pair of words the passage never joins. Each entry is `value|phrase`, the phrase written as the ספור panel shows it (no geresh, no gershayim): `'55|כי כה'`, `'30|כי'`. Every occurrence of the run goes, in every block — **except a run that covers a `{…}` or a `[…]`**. What the author wrote as a number or as letters is never noise, so `'30|כי'` drops the ordinary word כי and leaves `[כ״י]` counted. That exception is what keeps a value from vanishing off the sheet altogether: the legend shows no count, so before calling a reading done, check that every color draws at least one rule.
+`hide` drops the runs a reading does not keep — a value that lands on an ordinary word, or on a pair of words the passage never joins. Each entry is `value|phrase`, the phrase written as the ספור panel shows it (no geresh, no gershayim): `'55|כי כה'`, `'30|כי'`. Every occurrence of the run goes, in every block — **except a run that covers a `{…}` or a `[…]`**. What the author wrote as a number or as letters is never noise, so `'30|כי'` drops the ordinary word כי and leaves `[כ״י]` counted. **An entry that starts with `!` drops its run even over letters or numbers** — `'!232|אב מן אבגדה או אבג מן אבגדהו'` — for a run the reading has looked at and does not keep. That exception is what keeps a value from vanishing off the sheet altogether: the legend shows no count, so before calling a reading done, check that every color draws at least one rule.
 
 ## Type and color
 
 The look of the sheet — its tokens, its type scale, its spacing, the gematria rules, the PDF — is `docs/mekorot-charter.md`. What a source needs to know of it:
 
 - Running text is Frank Ruhl Libre `1.375rem`; every voice that is not running text — heads, display lines, letters, numbers, verses, titles — is David Libre. That contrast between the two faces is what carries the page.
-- Each kind of mark has its token: `--src-letter` blue for `{…}`, `--src-number` ochre for `[…]`, `--src-verse` brown for `«…»` and the lemma, `--src-ink-soft` for a reference and for an editorial note. A source never brings a colour of its own.
+- Each kind of mark has its token: `--src-letter` slate blue for `{…}`, `--src-number` ochre for `[…]`, `--src-verse` brown for `«…»` and the lemma, `--src-ink-soft` for a reference and for an editorial note. A source never brings a colour of its own.
 - The sheet is `46rem` wide, framed by a thin inner rule, and the page scrolls inside `.src-page` — the window itself never scrolls. The same sheet, set at the width of an A4 column, is what the PDF button downloads.
 
 ## Before calling a source done

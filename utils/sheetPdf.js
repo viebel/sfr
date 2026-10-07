@@ -29,6 +29,7 @@ export const PAGE = {
   width: PAPER.width / SCALE,
   height: PAPER.height / SCALE,
   top: MARGIN.top / SCALE,
+  firstTop: MARGIN.top / (2 * SCALE),
   bottom: MARGIN.bottom / SCALE,
   side: MARGIN.side / SCALE,
   frame: FRAME / SCALE,
@@ -60,8 +61,15 @@ async function setAside(sheet, look = '') {
 export async function layoutPages(sheet, look = '') {
   const { copy, height, pages, done } = await setAside(sheet, look)
   const html = copy.outerHTML
+  const origin = copy.getBoundingClientRect().top
+  const blockPages = {}
+  copy.querySelectorAll('[data-block]').forEach((el) => {
+    const top = el.getBoundingClientRect().top - origin
+    const page = pages.findIndex((p) => !p.blank && top < p.bottom)
+    blockPages[el.dataset.block] = Math.max(0, page)
+  })
   done()
-  return { pages, height, html }
+  return { pages, height, html, blockPages }
 }
 
 // Each page of the sheet as a picture: the copy is measured where the page can
@@ -78,8 +86,12 @@ async function pictures(sheet, look = '') {
     await draw(markup, pages[0], height, paper)
     const images = []
     for (const page of pages) {
+      if (page.blank) {
+        images.push({ data: null, height: 0, marginTop: page.marginTop })
+        continue
+      }
       const canvas = await draw(markup, page, height, paper)
-      images.push({ data: canvas.toDataURL('image/jpeg', QUALITY), height: page.bottom - page.top })
+      images.push({ data: canvas.toDataURL('image/jpeg', QUALITY), height: page.bottom - page.top, marginTop: page.marginTop })
     }
     return images
   } finally {
@@ -113,7 +125,7 @@ export async function downloadSheetPdf(sheet, source) {
     pdf.setDrawColor(token('--src-line-strong'))
     pdf.setLineWidth(0.6)
     pdf.rect(FRAME, FRAME, PAPER.width - 2 * FRAME, PAPER.height - 2 * FRAME, 'S')
-    pdf.addImage(image.data, 'JPEG', MARGIN.side, MARGIN.top, COLUMN * SCALE, image.height * SCALE)
+    if (image.data) pdf.addImage(image.data, 'JPEG', MARGIN.side, image.marginTop * SCALE, COLUMN * SCALE, image.height * SCALE)
     if (images.length === 1) return
     // The running head from the second page on, the folio on every page, each
     // centred in the band between the text and the frame.
@@ -138,9 +150,9 @@ export async function downloadSpreadPdf(sheet, source, look) {
   for (let n = 0; n < images.length; n += 2) {
     if (n > 0) pdf.addPage('a4', 'landscape')
     ;[images[n], images[n + 1]].forEach((image, side) => {
-      if (!image) return
+      if (!image || !image.data) return
       const x = side === 0 ? half : 0
-      pdf.addImage(image.data, 'JPEG', x + PAGE.side * k, PAGE.top * k, PAGE.column * k, image.height * k)
+      pdf.addImage(image.data, 'JPEG', x + PAGE.side * k, image.marginTop * k, PAGE.column * k, image.height * k)
     })
   }
   finish(pdf, source)
@@ -165,6 +177,7 @@ function units(copy) {
   if (header) out.push({ ...box(header), glue: false })
   const text = copy.querySelector('.src-text')
   Array.from(text ? text.children : []).forEach((el) => {
+    const firstUnit = out.length
     const is = (name) => el.classList.contains(name)
     if (is('src-head') || is('src-label')) {
       out.push({ ...box(el), glue: true })
@@ -177,6 +190,10 @@ function units(copy) {
       const whole = box(el)
       if (whole.bottom - whole.top <= PAGE_HEIGHT) out.push({ ...whole, glue: false })
       else linesOf(el, origin).forEach((l) => out.push({ ...l, glue: false }))
+    }
+    if (out[firstUnit] && el.dataset.pageBreakBefore === 'true') out[firstUnit].breakBefore = true
+    if (out[firstUnit] && el.hasAttribute('data-space-before')) {
+      out[firstUnit].spaceBefore = Math.max(0, parseFloat(getComputedStyle(el).marginTop) || 0)
     }
   })
   return out.sort((a, b) => a.top - b.top)
@@ -209,30 +226,54 @@ function linesOf(el, origin) {
 // Fill each page with as many units as it holds, and break after the last one
 // that may be broken after. A page starts at its first line — the air between
 // two blocks stays with the page before — and ends just below its last.
+// The first page's half top margin gives its title and text more room.
 function paginate(units, height) {
-  if (units.length === 0) return [{ top: 0, bottom: height }]
+  if (units.length === 0) return [{ top: 0, bottom: height, marginTop: PAGE.firstTop }]
   const todo = units.map((u) => ({ ...u }))
   const pages = []
   let i = 0
   while (i < todo.length) {
+    // Keep an explicitly requested gap above the first block of a page.
+    // Move the content down instead of revealing text from the previous page.
+    const baseMargin = pages.length === 0 ? PAGE.firstTop : PAGE.top
+    const capacity = PAGE.height - baseMargin - PAGE.bottom
+    const gap = todo[i].spaceBefore || 0
     const top = pages.length === 0 ? 0 : Math.max(pages[pages.length - 1].bottom, todo[i].top - SLACK)
+    // Large gaps can span whole blank pages, without making a negative crop.
+    if (gap >= capacity) {
+      pages.push({ top, bottom: top, marginTop: baseMargin, blank: true })
+      todo[i].spaceBefore = gap - capacity
+      continue
+    }
+    const marginTop = baseMargin + gap
+    const availableHeight = capacity - gap
     let fits = i - 1
     let end = i - 1
-    for (let j = i; j < todo.length && todo[j].bottom + SLACK - top <= PAGE_HEIGHT; j++) {
+    for (let j = i; j < todo.length; j++) {
+      // An explicit break takes precedence over keeping adjacent blocks together.
+      if (j > i && todo[j].breakBefore) { end = fits; break }
+      if (todo[j].bottom + SLACK - top > availableHeight) break
       fits = j
       if (!todo[j].glue) end = j
     }
     // What is held together runs longer than a page: break where it must.
     if (end < i) end = fits
+    if (end < i && gap > 0) {
+      // The gap fits but leaves no room for even the first line.
+      pages.push({ top, bottom: top, marginTop: baseMargin, blank: true })
+      todo[i].spaceBefore = 0
+      continue
+    }
     // A single unit taller than a page — nothing the sheet sets is — is cut at
     // the foot of the page rather than lost.
     if (end < i) {
-      pages.push({ top, bottom: top + PAGE_HEIGHT })
-      todo[i].top = top + PAGE_HEIGHT
+      pages.push({ top, bottom: top + availableHeight, marginTop })
+      todo[i].top = top + availableHeight
+      todo[i].spaceBefore = 0
       continue
     }
     const next = todo[end + 1]
-    pages.push({ top, bottom: Math.min(todo[end].bottom + SLACK, next ? next.top : height) })
+    pages.push({ top, bottom: Math.min(todo[end].bottom + SLACK, next ? next.top : height), marginTop })
     i = end + 1
   }
   return pages
@@ -372,7 +413,7 @@ const fileName = (title) => `${(title || 'מקור').replace(/[\\/:*?"<>|]+/g, '
 // stylesheet the app loads them with — the Google Fonts link of
 // pages/_document.js in development, the CSS Next inlines in its place in a
 // build — and inlined as data.
-const FACES = /font-family:\s*["']?(David Libre|Frank Ruhl Libre)["']?/i
+const FACES = /font-family:\s*["']?(David Libre|Frank Ruhl Libre|Cousine)["']?/i
 let facesCSS = null
 
 function sheetFonts() {

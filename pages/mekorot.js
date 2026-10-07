@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import AppNav from '../components/AppNav'
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import Composer from '../components/Composer'
+import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sources } from '../data/sources'
 import { markReferences, parseMarked, tokenizeMarked } from '../utils/sourceText'
 import { analyzeStory, buildLegend } from '../utils/storyAnalysis'
@@ -9,6 +10,29 @@ import { edgePunctuation } from '../utils/storyAnalysis'
 import { PAGE, downloadSheetPdf, downloadSpreadPdf, layoutPages } from '../utils/sheetPdf'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+// Composition writes the source's file, so it exists only where there is a
+// repository to write to: on the machine that runs `yarn dev`, never online.
+const CAN_COMPOSE = process.env.NODE_ENV === 'development'
+
+// A pen on a line: the text and its setting, by hand.
+const IconCompose = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d="M4 20h16" />
+    <path d="M14.5 4.5l3 3L9 16l-4 1 1-4z" />
+  </svg>
+)
 
 // Two pages open on their spine — the ספריה's icon for its two-page view.
 const IconSpread = () => (
@@ -64,6 +88,15 @@ const IconDownload = () => (
 // - a string of letters the text speaks about, {א״ה}: the blue and the
 //   letterform already say it is letters.
 const bare = (text) => text.replace(/['"׳״]/g, '')
+
+// The space after a letter or a number written with letters never breaks — a
+// letter is not left alone at the end of a line, away from the words that
+// follow it: [ו׳] פעמים, {אב״ג} כנגד, {ב״א}, וכן (past a mark of punctuation
+// too). It is set as a no-break space on the page only, and the analysis reads
+// the same text, so its words and the page's stay one for one (a no-break space
+// is still a space to both).
+const bind = (text) =>
+  text.replace(/([}\]][,.:;!?)״׳'"]*)( +)/g, (_, mark, run) => mark + '\u00a0'.repeat(run.length))
 const signed = (text) => text.replace(/"/g, '״').replace(/'/g, '׳')
 const ABBREVIATIONS = new Set(['ואע״פ', 'אע״פ', 'י״י', 'ר׳'])
 const words = (text) =>
@@ -74,10 +107,36 @@ const words = (text) =>
 const PICK_TINT = 'linear-gradient(rgba(150, 150, 150, 0.38), rgba(150, 150, 150, 0.38))'
 const PickContext = createContext(null)
 
+// While composing, the spaces that make a layout are shown: a run of spaces —
+// at the head of a line, or two and more in a row — gets a dot under each
+// space, and a line break its ↵. They are drawn, not typed: the text and its
+// widths are unchanged, and nothing of it reaches the PDF.
+const ComposingContext = createContext(false)
+
+function Spaces({ text, atStart }) {
+  const composing = useContext(ComposingContext)
+  // `atStart`: the text opens its block, so a single space at its head is a layout too
+  const runs = atStart ? /( {2,}|^ +|\n +|\n)/ : /( {2,}|\n +|\n)/
+  if (!composing || !runs.test(text)) return <>{text}</>
+  return text.split(runs).map((part, i) => {
+    if (!part) return null
+    if (part.startsWith('\n')) {
+      return (
+        <Fragment key={i}>
+          <span className="src-shown-break" aria-hidden="true">↵</span>
+          {'\n'}
+          {part.length > 1 && <span className="src-shown-space">{part.slice(1)}</span>}
+        </Fragment>
+      )
+    }
+    return / /.test(part) && part.trim() === '' ? <span key={i} className="src-shown-space">{part}</span> : part
+  })
+}
+
 // A letter or a number that follows a prefix letter with nothing between them —
 // מ[ד׳], ה[ג׳], ב{ה״א} — has lost the geresh that kept the two apart, and would
 // read as one word (מד, הג); `glued` sets a hair of space between them.
-function Piece({ text, kind, pickable, glued }) {
+function Piece({ text, kind, pickable, glued, atStart }) {
   const pick = useContext(PickContext)
   const cls = (name) => (glued ? `${name} src-glued` : name)
   if (kind === 'letter') return <span className={cls('src-letter')}>{bare(text)}</span>
@@ -92,17 +151,18 @@ function Piece({ text, kind, pickable, glued }) {
   }
   if (kind === 'verse') return <span className="src-verse-inline">{words(text)}</span>
   if (kind === 'ref') return <span className="src-ref">{words(text)}</span>
-  return <>{words(text)}</>
+  return <Spaces text={words(text)} atStart={atStart} />
 }
 
 const endsWithLetter = (text) => /\p{L}$/u.test(bare(text))
 
-function Pieces({ pieces, pickable }) {
+function Pieces({ pieces, pickable, atStart }) {
   return pieces.map((piece, i) => (
     <Piece
       key={i}
       {...piece}
       pickable={pickable}
+      atStart={atStart && i === 0}
       glued={(piece.kind === 'letter' || piece.kind === 'num') && i > 0 && endsWithLetter(pieces[i - 1].text)}
     />
   ))
@@ -111,8 +171,8 @@ function Pieces({ pieces, pickable }) {
 // A block of running text, with the references picked out of the plain parts.
 // It has no analysis of its own, so a selection reaches only its numbers.
 function Marked({ text }) {
-  const pieces = useMemo(() => markReferences(parseMarked(text)), [text])
-  return <Pieces pieces={pieces} pickable />
+  const pieces = useMemo(() => markReferences(parseMarked(bind(text))), [text])
+  return <Pieces pieces={pieces} pickable atStart />
 }
 
 // The pieces of a token between two character offsets, kinds preserved.
@@ -136,13 +196,13 @@ function slicePieces(pieces, from, to) {
 // ק and ן, never nearer the line below than the line it belongs to — and each
 // further lane one pitch lower. Every counted word of a sheet takes the same
 // padding, so a lane runs level from one word to the next.
-const RULE = 3 // px, the thickness of a rule
+const RULE = 2 // px, shared by text, table figures and legend values
 const LANE = 5 // px from one lane's rule to the next
 const RISE = 2 // px the first rule climbs into the empty foot of the word's box
 const lanePadding = (laneCount) => LANE * (laneCount - 1) - RISE + RULE + 1
 
 function MarkedWithGematria({ text, block, blockIndex, laneCount }) {
-  const tokens = useMemo(() => tokenizeMarked(text), [text])
+  const tokens = useMemo(() => tokenizeMarked(bind(text)), [text])
   const pick = useContext(PickContext)
   if (!block || block.tokens.length !== tokens.length) return <Marked text={text} />
 
@@ -152,7 +212,7 @@ function MarkedWithGematria({ text, block, blockIndex, laneCount }) {
     const cover = block.tokenCover[i] || []
     const inPick = picked && picked.has(i)
     const pieces = markReferences(token.pieces)
-    if (cover.length === 0 && !inPick) return <Pieces key={i} pieces={pieces} />
+    if (cover.length === 0 && !inPick) return <Pieces key={i} pieces={pieces} atStart={i === 0} />
     const layers = cover.map((m) => {
       const fromFoot = bottomPad - (LANE * m.lane - RISE + RULE)
       return `linear-gradient(${m.color}, ${m.color}) left 0 bottom ${fromFoot}px / 100% ${RULE}px no-repeat`
@@ -205,7 +265,7 @@ function Figure({ value, legend }) {
   const picked = pick && value !== '' && pick.value === Number(value)
   if (!color && !picked) return <>{value}</>
   const layers = []
-  if (color) layers.push(`linear-gradient(${color}, ${color}) left bottom / 100% 3px no-repeat`)
+  if (color) layers.push(`linear-gradient(${color}, ${color}) left bottom / 100% ${RULE}px no-repeat`)
   if (picked) layers.push(PICK_TINT)
   return (
     <span className={color ? 'src-table-num' : undefined} style={{ background: layers.join(', ') }}>
@@ -223,6 +283,18 @@ function Block({ block, gematria, laneCount, legend, index }) {
             <span className="src-verse-num">{verse.n}</span>
             {verse.text}
           </p>
+        ))}
+      </div>
+    )
+  }
+
+  // A row of cells of one width, centered: two grids of as many cells line up
+  // column for column, whatever stands between them.
+  if (block.type === 'grid') {
+    return (
+      <div className="src-grid" style={{ '--grid-cols': block.cells.length }}>
+        {block.cells.map((cell, i) => (
+          <span className="src-grid-cell" key={i}><Marked text={cell} /></span>
         ))}
       </div>
     )
@@ -274,6 +346,28 @@ function Block({ block, gematria, laneCount, legend, index }) {
   )
 }
 
+// A block set in from the side its lines start on, by `indent` twelfths of the
+// line (pages/mekorot.js, the composition panel's − and +).
+const INDENT_STEPS = 9
+function indented(block) {
+  const steps = Math.max(0, Math.min(INDENT_STEPS, Math.round(block.indent || 0)))
+  return steps ? { marginInlineStart: `${(steps * 100) / 12}%` } : undefined
+}
+
+// The space after a block, when the composition has set it: `space` quarters
+// of the paragraph space (1.15rem), from 0 — the next block right under it — to
+// 8, twice the usual. The block after it then keeps no margin of its own, so
+// the gap is exactly this one.
+const SPACE_STEP = 1.15 / 4
+const MAX_SPACE = 8
+function spaced(block, previous) {
+  const style = {}
+  if (block.space !== undefined) style.marginBottom = `${Math.max(0, Math.min(MAX_SPACE, block.space)) * SPACE_STEP}rem`
+  if (previous && previous.space !== undefined) style.marginTop = 0
+  if (block.spaceBefore !== undefined) style.marginTop = `${Math.max(0, block.spaceBefore) * SPACE_STEP}rem`
+  return style
+}
+
 // One page of the two-page view, cut as the PDF cuts it: the text column — a
 // window on the sheet's markup at the height of this page — and nothing else.
 // No frame, no running head, no folio: the screen shows a page, not a printed
@@ -282,18 +376,18 @@ function Block({ block, gematria, laneCount, legend, index }) {
 // The two-page view sets the text a size up, on the same leading (CSS, .src-print-screen).
 const SPREAD_LOOK = 'src-print-screen'
 
-function Leaf({ page, html, onClick, turn }) {
+function Leaf({ page, html, onClick, turn, onSelectBlock }) {
   return (
     <div
       className={`src-leaf${turn ? ` src-leaf-turn-${turn}` : ''}`}
       style={{ width: PAGE.width, height: PAGE.height }}
-      onClick={turn ? onClick : undefined}
+      onClick={onSelectBlock || (turn ? onClick : undefined)}
     >
-      {page && (
+      {page && !page.blank && (
         <div
           className={`src-leaf-text src-print ${SPREAD_LOOK}`}
           dir="rtl"
-          style={{ top: PAGE.top, left: PAGE.side, width: PAGE.column, height: page.bottom - page.top }}
+          style={{ top: page.marginTop, left: PAGE.side, width: PAGE.column, height: page.bottom - page.top }}
         >
           <div style={{ transform: `translateY(${-page.top}px)` }} dangerouslySetInnerHTML={{ __html: html }} />
         </div>
@@ -307,6 +401,11 @@ export default function Mekorot() {
   const [hoverTip, setHoverTip] = useState(null)
   const [pick, setPick] = useState(null)
   const [exporting, setExporting] = useState(false)
+  const [composing, setComposing] = useState(false)
+  const [focusedBlock, setFocusedBlock] = useState(null)
+  const [draft, setDraft] = useState(null)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveError, setSaveError] = useState('')
   const [spread, setSpread] = useState(false)
   const [opening, setOpening] = useState(0)
   const [slide, setSlide] = useState(null)
@@ -341,6 +440,10 @@ export default function Mekorot() {
     setPick(null)
   }
 
+  // While composing, the sheet is drawn from the draft, as it is being changed.
+  const sheetBlocks = composing && draft ? draft : source.blocks
+  const dirty = composing && draft !== null && JSON.stringify(draft) !== JSON.stringify(source.blocks)
+
   // Every block is analyzed on its own: a match can never cross a paragraph, so
   // block by block gives exactly the matches the whole text gives.
   const analysis = useMemo(() => {
@@ -348,25 +451,28 @@ export default function Mekorot() {
     const legend = buildLegend(source.numbers)
     // `hide` names a run by value and phrase; the analysis keys each occurrence
     // separately, so the keys to drop are read off a first pass.
-    const hidden = new Set(source.hide || [])
-    const blocks = source.blocks.map((block) => {
-      if (block.type === 'verses' || block.type === 'intro' || block.type === 'table') return null
-      const tokens = tokenizeMarked(block.text)
+    // An entry written `!value|phrase` drops its run even over letters or a
+    // number: the reader has looked at that run and does not keep it.
+    const hidden = new Set((source.hide || []).filter((h) => !h.startsWith('!')))
+    const forced = new Set((source.hide || []).filter((h) => h.startsWith('!')).map((h) => h.slice(1)))
+    const blocks = sheetBlocks.map((block) => {
+      if (block.type === 'verses' || block.type === 'intro' || block.type === 'table' || block.type === 'grid') return null
+      const tokens = tokenizeMarked(bind(block.text))
       const text = tokens.map((t) => t.plain).join('')
       const found = analyzeStory(text, legend, [], false)
-      if (hidden.size === 0) return found
+      if (hidden.size === 0 && forced.size === 0) return found
       // A run the author wrote as a number or as letters is never noise, so a
       // `hide` entry never reaches one: כי the word goes, [כ״י] the number stays.
       const marked = tokens.map((t) => t.pieces.some((p) => p.kind === 'num' || p.kind === 'letter'))
       const covers = (m) => marked.slice(m.tokenStart, m.tokenEnd + 1).some(Boolean)
       const drop = found.matchList
-        .filter((m) => hidden.has(m.key.split('#')[0]) && !covers(m))
+        .filter((m) => forced.has(m.key.split('#')[0]) || (hidden.has(m.key.split('#')[0]) && !covers(m)))
         .map((m) => m.key)
       return drop.length === 0 ? found : analyzeStory(text, legend, drop, false)
     })
     const laneCount = blocks.reduce((max, b) => Math.max(max, b ? b.laneCount : 0), 0)
     return { legend, blocks, laneCount }
-  }, [source])
+  }, [source, sheetBlocks])
 
   // The leading opens with the lanes the sheet stacks under its words, so the
   // lowest rule of a line never reaches the letters of the next one.
@@ -432,7 +538,7 @@ export default function Mekorot() {
       tokens.set(index, set)
       count += spans.length
     })
-    source.blocks.forEach((block) => {
+    sheetBlocks.forEach((block) => {
       if (block.type === 'table') {
         block.rows.forEach((row) => row.forEach((cell, c) => {
           const { value: figure, siman } = c === 0 ? { value: '', siman: cell } : splitCell(cell)
@@ -515,13 +621,13 @@ export default function Mekorot() {
         .catch((error) => console.error('Two-page view failed', error))
     })
     return () => { live = false }
-  }, [spread, source, relayout])
+  }, [spread, source, sheetBlocks, composing, relayout])
 
   // A new source, or the view opened again, starts at the first spread.
   useEffect(() => {
     setOpening(0)
     setSlide(null)
-  }, [spread, source])
+  }, [spread, activeId])
 
   // The cuts are measured under the fonts and the stylesheet of the moment: a
   // face that arrives late, or a stylesheet that changes under the page, moves
@@ -597,12 +703,108 @@ export default function Mekorot() {
   useEffect(() => {
     if (!spread) return undefined
     const onKey = (e) => {
+      if (e.target.closest?.('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return
       if (e.key === 'ArrowLeft') turn(1)
       if (e.key === 'ArrowRight') turn(-1)
+      if (e.key === 'Home') turn(-opening)
+      if (e.key === 'End') turn(openings - 1 - opening)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  // Composition: a draft of the blocks, edited beside the sheet that shows it,
+  // and written to the source's file as it changes — a second at most after a
+  // change, one write for a burst of them, always the latest draft.
+  const openComposer = () => {
+    setFocusedBlock(null)
+    setSlide(null)
+    // A block of the former `indent` type is opened as a paragraph set in by a third
+    setDraft(JSON.parse(JSON.stringify(source.blocks)).map((b) => (b.type === 'indent' ? { ...b, type: 'para', indent: b.indent ?? 4 } : b)))
+    setSaveStatus('idle')
+    setPick(null)
+    setHoverTip(null)
+    setComposing(true)
+  }
+  const closeComposer = () => {
+    // What is still waiting for its second is written before the panel goes
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      saveDraft(draftRef.current)
+    }
+    setComposing(false)
+    setFocusedBlock(null)
+    setDraft(null)
+  }
+  const editDraft = (next) => {
+    setDraft(next)
+    if (saveStatus !== 'saving') setSaveStatus('idle')
+  }
+  const saveDraft = async (blocks) => {
+    setSaveStatus('saving')
+    try {
+      const res = await fetch('/api/composition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: source.id, blocks })
+      })
+      if (!res.ok) throw new Error((await res.json()).error || res.statusText)
+      setSaveError('')
+      setSaveStatus('saved')
+    } catch (error) {
+      console.error('Composition was not saved', error)
+      setSaveError(error.message)
+      setSaveStatus('error')
+    }
+  }
+  // Autosave, throttled: the first change of a burst starts a one-second wait,
+  // and when it ends the latest draft is written.
+  const draftRef = useRef(null)
+  draftRef.current = draft
+  const saveTimer = useRef(null)
+  useEffect(() => {
+    if (!composing || !dirty || saveTimer.current) return
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null
+      saveDraft(draftRef.current)
+    }, 1000)
+  })
+  useEffect(() => () => clearTimeout(saveTimer.current), [])
+
+  // A card and its block on the sheet find each other.
+  const showBlock = (index) => {
+    setFocusedBlock(index)
+    if (spread) {
+      const page = layout?.blockPages[index]
+      if (page !== undefined) {
+        setSlide(null)
+        setOpening(Math.floor(page / 2))
+      }
+      return
+    }
+    const el = sheetRef.current && sheetRef.current.querySelector(`[data-block="${index}"]`)
+    if (!el) return
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    sheetRef.current.querySelectorAll('.src-composing-on').forEach((x) => x.classList.remove('src-composing-on'))
+    el.classList.add('src-composing-on')
+  }
+  useEffect(() => {
+    const area = pageRef.current
+    if (!area) return
+    area.querySelectorAll('.src-composing-on').forEach((el) => el.classList.remove('src-composing-on'))
+    if (composing && focusedBlock !== null) {
+      area.querySelectorAll(`[data-block="${focusedBlock}"]`).forEach((el) => el.classList.add('src-composing-on'))
+    }
+  }, [composing, focusedBlock, layout, opening, spread])
+  const findCard = (e) => {
+    const el = composing && e.target.closest && e.target.closest('[data-block]')
+    const area = el && document.getElementById(`compose-${el.dataset.block}`)
+    if (area) {
+      area.focus()
+      area.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }
 
   // The sheet's tools: the PDF and the two-page view. They sit at the
   // top-left of whatever is being read — the sheet's corner, or beside the
@@ -633,6 +835,21 @@ export default function Mekorot() {
     </div>
   )
 
+  // Composition floats in the window's corner, in reach wherever the sheet is
+  // scrolled to — on a local checkout only.
+  const composeButton = CAN_COMPOSE && (
+    <button
+      type="button"
+      className={`src-tool src-compose-float${composing ? ' on' : ''}`}
+      onClick={() => (composing ? closeComposer() : openComposer())}
+      aria-pressed={composing}
+      title="קומפוזיציה — עריכת הטקסט ועימוד הפסקאות"
+      aria-label="קומפוזיציה"
+    >
+      <IconCompose />
+    </button>
+  )
+
   return (
     <>
       <Head>
@@ -641,11 +858,22 @@ export default function Mekorot() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className={`src-root${spread ? ' src-root-spread' : ''}`}>
+      <div className={`src-root${spread ? ' src-root-spread' : ''}${composing ? ' src-root-composing' : ''}`}>
         <AppNav current="library" />
 
         <div className="src-body">
-          <nav className="src-list" aria-label="מקורות">
+          {composing && draft && (
+            <Composer
+              blocks={draft}
+              onChange={editDraft}
+              onFocusBlock={showBlock}
+              status={saveStatus}
+              error={saveError}
+              dirty={dirty}
+              onClose={closeComposer}
+            />
+          )}
+          <nav className="src-list" aria-label="מקורות" hidden={composing}>
             {sources.map((item) => (
               <button
                 type="button"
@@ -661,6 +889,7 @@ export default function Mekorot() {
             ))}
           </nav>
 
+          {composeButton}
           <article className="src-page" ref={pageRef}>
             {spread && (
               <div className="src-spread">
@@ -713,7 +942,8 @@ export default function Mekorot() {
                               page={layout.pages[n] || null}
                               html={layout.html}
                               onClick={() => turn(side === 0 ? -1 : 1)}
-                              turn={side === 0 ? (opening > 0 ? 'back' : null) : opening < openings - 1 ? 'on' : null}
+                              onSelectBlock={composing ? findCard : undefined}
+                              turn={composing ? null : side === 0 ? (opening > 0 ? 'back' : null) : opening < openings - 1 ? 'on' : null}
                             />
                           ))}
                         </div>
@@ -722,9 +952,32 @@ export default function Mekorot() {
                   )}
                   </div>
                 </div>
+                {/* Every spread, in reach: a button for each, the first on the
+                    right as in the book, the one shown pressed. */}
+                {layout && openings > 1 && (
+                  <nav className="src-spread-pager" aria-label="עמודים">
+                    {Array.from({ length: openings }, (_, at) => {
+                      const first = 2 * at + 1
+                      const last = Math.min(2 * at + 2, layout.pages.length)
+                      return (
+                        <button
+                          type="button"
+                          key={at}
+                          className={`src-spread-pager-item${at === opening ? ' on' : ''}`}
+                          onClick={() => turn(at - opening)}
+                          aria-current={at === opening ? 'page' : undefined}
+                          title={`עמודים ${first}–${last}`}
+                        >
+                          {first === last ? first : `${first}–${last}`}
+                        </button>
+                      )
+                    })}
+                  </nav>
+                )}
               </div>
             )}
 
+            <ComposingContext.Provider value={composing}>
             <PickContext.Provider value={pick}>
               <div
                 className="src-sheet"
@@ -732,7 +985,8 @@ export default function Mekorot() {
                 style={spread ? { display: 'none' } : undefined}
                 onMouseOver={pick ? undefined : showTip}
                 onMouseLeave={() => setHoverTip(null)}
-                onMouseUp={pickSelection}
+                onMouseUp={composing ? undefined : pickSelection}
+                onClick={composing ? findCard : undefined}
               >
                 {!spread && tools}
 
@@ -747,7 +1001,7 @@ export default function Mekorot() {
                         <span className="src-legend-item" key={value}>
                           <span
                             className="src-legend-value"
-                            style={{ background: `linear-gradient(${color}, ${color}) left bottom / 100% 3px no-repeat` }}
+                            style={{ background: `linear-gradient(${color}, ${color}) left bottom / 100% ${RULE}px no-repeat` }}
                           >
                             {value}
                           </span>
@@ -758,16 +1012,24 @@ export default function Mekorot() {
                 </header>
 
                 <div className="src-text" style={{ '--src-leading': leading }}>
-                  {source.blocks.map((block, index) => (
-                    <Block
-                      key={index}
-                      index={index}
-                      block={block}
-                      gematria={analysis ? analysis.blocks : null}
-                      laneCount={analysis ? analysis.laneCount : 0}
-                      legend={analysis ? analysis.legend : null}
-                    />
-                  ))}
+                  {/* Each block carries its place in the list, for the composition
+                      panel to find it on the sheet and the sheet to find its card. */}
+                  {sheetBlocks.map((block, index) => {
+                    const el = Block({
+                      index,
+                      block,
+                      gematria: analysis ? analysis.blocks : null,
+                      laneCount: analysis ? analysis.laneCount : 0,
+                      legend: analysis ? analysis.legend : null
+                    })
+                    return cloneElement(el, {
+                      key: index,
+                      'data-block': index,
+                      'data-page-break-before': block.pageBreakBefore ? 'true' : undefined,
+                      'data-space-before': block.spaceBefore,
+                      style: { ...el.props.style, ...indented(block), ...spaced(block, sheetBlocks[index - 1]) }
+                    })
+                  })}
                 </div>
 
                 {pick && (
@@ -793,6 +1055,7 @@ export default function Mekorot() {
                 )}
               </div>
             </PickContext.Provider>
+            </ComposingContext.Provider>
           </article>
         </div>
       </div>
