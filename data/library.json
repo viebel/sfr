@@ -10,7 +10,8 @@
       "kind": "manuscript",
       "dir": "rtl",
       "pages": 488,
-      "source": "manuscripts/אבן עזרא על התורה.pdf"
+      "source": "manuscripts/אבן עזרא על התורה.pdf",
+      "detached": true
     },
     {
       "id": "bn-zr-l-htvrh",
@@ -20,7 +21,8 @@
       "author": "",
       "year": "",
       "kind": "manuscript",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "lyhv-mgshb-htpthvt-hktb",
@@ -30,7 +32,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "mry-shpr",
@@ -40,7 +43,8 @@
       "author": "",
       "year": "",
       "kind": "manuscript",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "hkmvny",
@@ -50,7 +54,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "hakhmoni-donolo",
@@ -61,7 +66,8 @@
       "kind": "book",
       "dir": "rtl",
       "pages": 167,
-      "source": "books/חכמוני דונולו.pdf"
+      "source": "books/חכמוני דונולו.pdf",
+      "detached": true
     },
     {
       "id": "mdrsh-hhgyvn-rsh-mylyn",
@@ -71,7 +77,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "svlm-hlyh",
@@ -81,7 +88,8 @@
       "author": "",
       "year": "",
       "kind": "manuscript",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "sefer-hamispar-ktav-yad",
@@ -92,7 +100,8 @@
       "kind": "manuscript",
       "dir": "rtl",
       "pages": 129,
-      "source": "manuscripts/ספר המספר.pdf"
+      "source": "manuscripts/ספר המספר.pdf",
+      "detached": true
     },
     {
       "id": "sefer-hamispar-print",
@@ -103,7 +112,8 @@
       "kind": "book",
       "dir": "rtl",
       "pages": 207,
-      "source": "books/ספר המספר.pdf"
+      "source": "books/ספר המספר.pdf",
+      "detached": true
     },
     {
       "id": "spr-hmspr",
@@ -113,7 +123,8 @@
       "author": "",
       "year": "",
       "kind": "manuscript",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "spbrtsrh-b-nvshvbhqdvm",
@@ -123,13 +134,25 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "pyrvsh-hr-mgrmyz-l-spr-ytsyrh",
       "file": "pyrvsh-hr-mgrmyz-l-spr-ytsyrh.pdf",
       "source": "books/אלעז מגרמזיא ספר יצירה.pdf",
       "title": "פירוש הר\"א מגרמיזא על ספר יצירה",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "rtl",
+      "detached": true
+    },
+    {
+      "id": "rsh-mylyn",
+      "file": "rsh-mylyn.pdf",
+      "source": "books/ראש מילין — השיר.pdf",
+      "title": "ראש מילין",
       "author": "",
       "year": "",
       "kind": "book",
@@ -144,7 +167,8 @@
       "kind": "book",
       "dir": "rtl",
       "pages": 189,
-      "source": "books/שערי צדק וסולם עליה pdf.pdf"
+      "source": "books/שערי צדק וסולם עליה pdf.pdf",
+      "detached": true
     },
     {
       "id": "shry-tsdq-vsvlm-lyh",
@@ -154,7 +178,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
     },
     {
       "id": "ars-conjectandi",
@@ -164,7 +189,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr"
+      "dir": "ltr",
+      "detached": true
     },
     {
       "id": "art-of-programming-4a-knuth",
@@ -186,7 +212,8 @@
       "kind": "book",
       "dir": "rtl",
       "pages": 796,
-      "source": "books/dictionaire hebreu philosophique.pdf"
+      "source": "books/dictionaire hebreu philosophique.pdf",
+      "detached": true
     },
     {
       "id": "groupe-et-tonalites-musicales",
@@ -197,7 +224,8 @@
       "kind": "book",
       "dir": "ltr",
       "pages": 23,
-      "source": "books/groupe et tonalités musicales.pdf"
+      "source": "books/groupe et tonalités musicales.pdf",
+      "detached": true
     },
     {
       "id": "heb-763-spr-ytsyrh",
@@ -207,7 +235,19 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "rtl"
+      "dir": "rtl",
+      "detached": true
+    },
+    {
+      "id": "q",
+      "file": "q.pdf",
+      "source": "books/Le_Pentateuque traduit par Wogue.pdf",
+      "title": "Pentateuque traduit par L. Wogue",
+      "author": "",
+      "year": "",
+      "kind": "book",
+      "dir": "ltr",
+      "detached": true
     },
     {
       "id": "permutations-bernouilli",
@@ -218,17 +258,8 @@
       "kind": "book",
       "dir": "ltr",
       "pages": 640,
-      "source": "books/permutations Bernouilli.pdf"
-    },
-    {
-      "id": "q",
-      "file": "q.pdf",
-      "source": "books/Le_Pentateuque traduit par Wogue.pdf",
-      "title": "Pentateuque traduit par L. Wogue",
-      "author": "",
-      "year": "",
-      "kind": "book",
-      "dir": "ltr"
+      "source": "books/permutations Bernouilli.pdf",
+      "detached": true
     },
     {
       "id": "regular-polytopes-coxeter",
@@ -239,7 +270,8 @@
       "kind": "book",
       "dir": "ltr",
       "pages": 278,
-      "source": "books/Regular Polytopes - Coxeter.pdf"
+      "source": "books/Regular Polytopes - Coxeter.pdf",
+      "detached": true
     },
     {
       "id": "sefer-yesira-scientific-edition",
@@ -249,7 +281,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr"
+      "dir": "ltr",
+      "detached": true
     },
     {
       "id": "taocp-4a-knuth",
@@ -271,7 +304,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr"
+      "dir": "ltr",
+      "detached": true
     },
     {
       "id": "the-earliest-version-of-sefer-yeirah-te",
@@ -281,7 +315,8 @@
       "author": "",
       "year": "",
       "kind": "book",
-      "dir": "ltr"
+      "dir": "ltr",
+      "detached": true
     }
   ]
 }
